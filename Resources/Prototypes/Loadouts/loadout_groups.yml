@@ -1137,7 +1137,7 @@
 
 - type: loadoutGroup
   id: ChiefEngineerShoes
-  parent: [FloofShoes] # Floofstation
+  parent: [FloofCeGloves, FloofShoes] # Floofstation
   name: loadout-group-chief-engineer-shoes
   loadouts:
   #- BrownShoes # DeltaV - Engi loadout rework
