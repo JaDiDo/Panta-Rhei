@@ -1181,3 +1181,9 @@ Entries:
       message: The fish vendor will not scam you out of your beer bottles anymore.
   id: 145
   time: '2026-03-07T10:18:47.0000000+00:00'
+- author: ItsDzordz
+  changes:
+    - type: Add
+      message: Added 2 new plushies
+  id: 146
+  time: '2026-03-07T10:20:29.0000000+00:00'
