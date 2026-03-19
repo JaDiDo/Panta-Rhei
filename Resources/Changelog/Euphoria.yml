@@ -1421,3 +1421,9 @@ Entries:
         values again.
   id: 173
   time: '2026-03-19T09:19:26.0000000+00:00'
+- author: Dunrab
+  changes:
+    - type: Add
+      message: Added raincoats and other outer clothing from Frontier to loadouts.
+  id: 174
+  time: '2026-03-19T09:48:58.0000000+00:00'
