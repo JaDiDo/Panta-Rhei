@@ -46,7 +46,7 @@
     graph: N14Seat # DeltaV
     node: N14ChairErgonomic # DeltaV - furniture rework
   - type: StaticPrice # Floof - apparently it's expensive when deconstructed
-    price: 20
+    price: 40
 
 - type: entity
   parent: N14ChairBarRetro
