@@ -1976,3 +1976,15 @@ Entries:
       message: More roles should have access to full loadout options.
   id: 248
   time: '2026-04-11T02:38:10.0000000+00:00'
+- author: faefyr
+  changes:
+    - type: Add
+      message: 8 new chaplain clothing - Flame Religion
+    - type: Add
+      message: 1 new winter coat - Flame Religion
+    - type: Add
+      message: Flame religion Altar
+    - type: Add
+      message: Flame religion holy book
+  id: 249
+  time: '2026-04-11T02:58:13.0000000+00:00'
