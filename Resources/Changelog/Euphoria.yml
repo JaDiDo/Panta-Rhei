@@ -2030,3 +2030,9 @@ Entries:
       message: Changed name of Citrus Bikeshed to Akira Special
   id: 254
   time: '2026-04-13T04:52:16.0000000+00:00'
+- author: Tarazicon
+  changes:
+    - type: Tweak
+      message: Gas Canisters now use newer, more appealing sprites.
+  id: 255
+  time: '2026-04-13T04:59:09.0000000+00:00'
