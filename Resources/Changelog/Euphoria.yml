@@ -2131,3 +2131,9 @@ Entries:
       message: Logi store & syndicate uplink have respective weaponry
   id: 265
   time: '2026-04-15T10:38:12.0000000+00:00'
+- author: bandw2gs
+  changes:
+    - type: Fix
+      message: Highlight issues for LO and SecTech roles
+  id: 266
+  time: '2026-04-15T10:40:12.0000000+00:00'
