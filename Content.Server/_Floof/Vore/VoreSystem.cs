@@ -10,6 +10,9 @@ using Content.Shared.Popups;
 using Content.Shared.FloofStation;
 using Robust.Shared.Serialization;
 using Content.Shared._Floof.Vore;
+using Content.Shared._Shitmed.Body.Components;
+using Content.Shared._DV.CosmicCult.Components;
+using Content.Server.Atmos.Components;
 
 namespace Content.Server._Floof.Vore;
 
@@ -27,15 +30,30 @@ public sealed class VoreSystem : EntitySystem
     {
         SubscribeLocalEvent<GetVerbsEvent<Verb>>(OnGetVerbs);
         SubscribeLocalEvent<VoreComponent, OnVoreDoAfter>(OnVoreDoAfter);
+        SubscribeLocalEvent<VoreComponent, EntRemovedFromContainerMessage>(OnVoreRemovedFromContainer);
+
     }
 
+    /// <summary>
+    /// creates verbs inside the interaction menu for yourself and other mobs controlled by players 
+    /// only show up when the consent has been selected on both sides
+    /// </summary>
     private void OnGetVerbs(GetVerbsEvent<Verb> args){
         var user = args.User;
         var target = args.Target;
         
-        // no self activation
-        if (user == target)
+        // no self activation, only there to remove your own prey and not have other intervene or have others see that you have prey
+        if (user == target){
+            var container = _containerSystem.EnsureContainer<Container>(target, "vore_container");
+            if (container.ContainedEntities.Count > 0){
+                args.Verbs.Add(new Verb
+                {
+                    Text = "Remove Prey",
+                    Act = () => OnTryReleasePrey(target)
+                });
+            }
             return;
+        }
 
         // only when reachable & interactable
         if (!args.CanInteract || !args.CanAccess)
@@ -70,8 +88,14 @@ public sealed class VoreSystem : EntitySystem
             });
         }
     }
-
+        
+    /// <summary>
+    /// used for after selecting to insert into someone or devour
+    /// will create a slow popup and warning to give both sides time to react on it
+    /// </summary>
     private void OnTryVore(EntityUid user, EntityUid target){
+        //currently needed as a lack of component
+        //TODO remove after its added on getverbs
         EnsureComp<VoreComponent>(user);
 
         //slow loading bar to avoid instant vore with warning pop ups
@@ -85,15 +109,61 @@ public sealed class VoreSystem : EntitySystem
         _doAfterSystem.TryStartDoAfter(doAfterArgs);
     }
 
-    
+    /// <summary>
+    /// moving the player inside the artificial storage
+    /// will also give buffs such as space immunity for the target
+    /// </summary>
     private void OnVoreDoAfter(EntityUid uid, VoreComponent comp, OnVoreDoAfter args){
         //handles canceled events
         if (args.Cancelled || args.Handled)
             return;
-        if (args.Target is not EntityUid target)
+        if (args.Target is not EntityUid prey)
             return;
-        //moves inside the person
+
+        //moves prey inside the person
         var container = _containerSystem.EnsureContainer<Container>(args.User, "vore_container");
-        _containerSystem.Insert(target, container);
+        _containerSystem.Insert(prey, container);
+        
+        /*make the prey immune to space+temp+breathing to avoid consent concerns from outside influence
+        gets removed after escaping or being forcefully ejected by pred*/
+        EnsureComp<PressureImmunityComponent>(prey);
+        EnsureComp<BreathingImmunityComponent>(prey);
+        EnsureComp<TemperatureImmunityComponent >(prey);
+    }
+
+    /// <summary>
+    /// for when the pred removes the prey from their container
+    /// will remove the buffs such as space immunity for the target
+    /// </summary>
+    private void OnTryReleasePrey(EntityUid pred){
+        var container = _containerSystem.EnsureContainer<Container>(pred, "vore_container");
+        var preyList = new List<EntityUid>(container.ContainedEntities);
+        //remove everything from people to items
+        foreach (var prey in preyList){
+            _containerSystem.Remove(prey, container);
+            // remove the given immunity components
+            RemComp<PressureImmunityComponent>(prey);
+            RemComp<BreathingImmunityComponent>(prey);
+            RemComp<TemperatureImmunityComponent>(prey);
+            _popupSystem.PopupEntity("You have been released!", prey, prey);
+        }
+        _popupSystem.PopupEntity("You release your prey.", pred, pred);
+    }
+
+    /// <summary>
+    /// in case the prey chose to escape themself
+    /// will remove the buffs such as space immunity for the target
+    /// </summary>
+    private void OnVoreRemovedFromContainer(EntityUid uid, VoreComponent comp, EntRemovedFromContainerMessage args){
+        if (args.Container.ID != "vore_container")
+            return;
+
+        // remove the given immunity components
+        var prey = args.Entity;
+        RemComp<PressureImmunityComponent>(prey);
+        RemComp<BreathingImmunityComponent>(prey);
+        RemComp<TemperatureImmunityComponent>(prey);
+        _popupSystem.PopupEntity("You struggle free!", prey, prey);
+        _popupSystem.PopupEntity("Your prey escaped!", uid, uid);
     }
 }

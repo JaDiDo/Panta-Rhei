@@ -7,10 +7,4 @@ namespace Content.Shared._Floof.Vore;
 [RegisterComponent]
 public sealed partial class VoreComponent : Component{}
 [Serializable, NetSerializable]
-public sealed partial class OnVoreDoAfter : SimpleDoAfterEvent{
-public OnVoreDoAfter()
-    {
-        
-    }
-    
-}
+public sealed partial class OnVoreDoAfter : SimpleDoAfterEvent{}
