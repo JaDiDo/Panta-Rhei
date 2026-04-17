@@ -77,8 +77,15 @@ public sealed class VoreSystem : EntitySystem
             return;
         
         // to avoid empty mind NPCs
-        if (!EntityManager.TryGetComponent<MindContainerComponent>(target, out var mindContainer) ||
-            mindContainer.Mind == null)
+        if (!EntityManager.TryGetComponent<MindContainerComponent>(target, out var mindContainer) || mindContainer.Mind == null)
+            return;
+
+        //no verbs for swallowed people
+        /**TODO
+        making multivore possible. As of now its just a prevention method to avoid giving 
+        Components such as space immunity to the pred
+        */
+        if (_containerSystem.TryGetContainingContainer(user, out var userContainer) && userContainer.ID == "vore_container")
             return;
 
         // devour (pred → prey)
@@ -153,6 +160,7 @@ public sealed class VoreSystem : EntitySystem
             // in case prey escapes themself 
             SuppressEscapeMessage = true;
             _containerSystem.Remove(prey, container);
+            
             // remove the given immunity components
             RemComp<PressureImmunityComponent>(prey);
             RemComp<BreathingImmunityComponent>(prey);
