@@ -25,20 +25,30 @@ public sealed class VoreSystem : EntitySystem
     
     public static readonly ProtoId<ConsentTogglePrototype> isPred = "PredVore";
     public static readonly ProtoId<ConsentTogglePrototype> isPrey = "PreyVore";
+    private bool SuppressEscapeMessage = false;
 
     public override void Initialize()
     {
-        SubscribeLocalEvent<GetVerbsEvent<Verb>>(OnGetVerbs);
+        SubscribeLocalEvent<MindContainerComponent, ComponentStartup>(OnMindStartup);
+        
+        SubscribeLocalEvent<VoreComponent, GetVerbsEvent<Verb>>(OnGetVerbs);
         SubscribeLocalEvent<VoreComponent, OnVoreDoAfter>(OnVoreDoAfter);
         SubscribeLocalEvent<VoreComponent, EntRemovedFromContainerMessage>(OnVoreRemovedFromContainer);
+    }
 
+    /// <summary>
+    /// gives the vorecomponent to every entity that has the mindcomponent
+    /// in order to avoid giving every mob it one by one
+    /// </summary>
+    private void OnMindStartup(EntityUid uid, MindContainerComponent comp, ComponentStartup args){
+        EnsureComp<VoreComponent>(uid);
     }
 
     /// <summary>
     /// creates verbs inside the interaction menu for yourself and other mobs controlled by players 
     /// only show up when the consent has been selected on both sides
     /// </summary>
-    private void OnGetVerbs(GetVerbsEvent<Verb> args){
+    private void OnGetVerbs(EntityUid uid, VoreComponent comp, GetVerbsEvent<Verb> args){
         var user = args.User;
         var target = args.Target;
         
@@ -94,9 +104,6 @@ public sealed class VoreSystem : EntitySystem
     /// will create a slow popup and warning to give both sides time to react on it
     /// </summary>
     private void OnTryVore(EntityUid user, EntityUid target){
-        //currently needed as a lack of component
-        //TODO remove after its added on getverbs
-        EnsureComp<VoreComponent>(user);
 
         //slow loading bar to avoid instant vore with warning pop ups
         var doAfterArgs = new DoAfterArgs(EntityManager, user, 5f, new OnVoreDoAfter(), user, target: target, used: user)
@@ -140,6 +147,8 @@ public sealed class VoreSystem : EntitySystem
         var preyList = new List<EntityUid>(container.ContainedEntities);
         //remove everything from people to items
         foreach (var prey in preyList){
+            // in case prey escapes themself 
+            SuppressEscapeMessage = true;
             _containerSystem.Remove(prey, container);
             // remove the given immunity components
             RemComp<PressureImmunityComponent>(prey);
@@ -157,6 +166,12 @@ public sealed class VoreSystem : EntitySystem
     private void OnVoreRemovedFromContainer(EntityUid uid, VoreComponent comp, EntRemovedFromContainerMessage args){
         if (args.Container.ID != "vore_container")
             return;
+        
+        // in case prey escapes themself 
+        if (SuppressEscapeMessage){
+            SuppressEscapeMessage = false;
+            return;
+        }
 
         // remove the given immunity components
         var prey = args.Entity;
@@ -165,5 +180,6 @@ public sealed class VoreSystem : EntitySystem
         RemComp<TemperatureImmunityComponent>(prey);
         _popupSystem.PopupEntity("You struggle free!", prey, prey);
         _popupSystem.PopupEntity("Your prey escaped!", uid, uid);
+        Console.WriteLine("stuff");
     }
 }
