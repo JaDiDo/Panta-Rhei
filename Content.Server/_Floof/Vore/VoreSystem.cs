@@ -1,19 +1,20 @@
-using Content.Shared._Common.Consent;
-using Content.Shared.Verbs;
 using Robust.Shared.GameObjects;
 using Robust.Shared.Prototypes;
+using Robust.Shared.Serialization;
+using Robust.Shared.Containers;
 using Content.Shared.Body.Components;
 using Content.Shared.Mind.Components;
-using Robust.Shared.Containers;
 using Content.Shared.DoAfter;
 using Content.Shared.Popups;
 using Content.Shared.FloofStation;
-using Robust.Shared.Serialization;
 using Content.Shared._Floof.Vore;
 using Content.Shared._Shitmed.Body.Components;
 using Content.Shared._DV.CosmicCult.Components;
 using Content.Server.Atmos.Components;
-
+using Content.Shared.Body.Events;
+using Content.Shared._Common.Consent;
+using Content.Shared.Verbs;
+using Content.Shared.Polymorph;
 namespace Content.Server._Floof.Vore;
 
 public sealed class VoreSystem : EntitySystem
@@ -30,10 +31,12 @@ public sealed class VoreSystem : EntitySystem
     public override void Initialize()
     {
         SubscribeLocalEvent<MindContainerComponent, ComponentStartup>(OnMindStartup);
-        
+
         SubscribeLocalEvent<VoreComponent, GetVerbsEvent<Verb>>(OnGetVerbs);
         SubscribeLocalEvent<VoreComponent, OnVoreDoAfter>(OnVoreDoAfter);
         SubscribeLocalEvent<VoreComponent, EntRemovedFromContainerMessage>(OnVoreRemovedFromContainer);
+        SubscribeLocalEvent<VoreComponent, BeingGibbedEvent>(OnGibbedRemoveContent);
+        SubscribeLocalEvent<VoreComponent, PolymorphedEvent>(OnPolymorphedTransferContent);
     }
 
     /// <summary>
@@ -180,6 +183,32 @@ public sealed class VoreSystem : EntitySystem
         RemComp<TemperatureImmunityComponent>(prey);
         _popupSystem.PopupEntity("You struggle free!", prey, prey);
         _popupSystem.PopupEntity("Your prey escaped!", uid, uid);
-        Console.WriteLine("stuff");
+    }
+
+    /// <summary>
+    /// in case the user gets gibbed need content emptied including prey+items
+    /// </summary>
+    private void OnGibbedRemoveContent(EntityUid uid, VoreComponent comp, BeingGibbedEvent args){
+        OnTryReleasePrey(uid);
+    }
+
+    /// <summary>
+    /// in case of polymorp scenarios such as kitsune transfer all the content inside the new body
+    /// </summary>
+    private void OnPolymorphedTransferContent(EntityUid uid, VoreComponent comp, PolymorphedEvent args){   
+        /** TODO 
+        only works from one way because of the deletion of mobs
+        its a temporay fix to avoid RR from transformation
+        */
+        var oldBody = args.OldEntity;
+        var newBody = args.NewEntity;
+        if (!_containerSystem.TryGetContainer(oldBody, "vore_container", out var oldContainer))
+            return;
+        var newContainer = _containerSystem.EnsureContainer<Container>(newBody, "vore_container");
+        var contents = new List<EntityUid>(oldContainer.ContainedEntities);
+        foreach (var entity in contents){
+            _containerSystem.Remove(entity, oldContainer);
+            _containerSystem.Insert(entity, newContainer);
+        }
     }
 }
