@@ -139,8 +139,15 @@ public sealed class VoreSystem : EntitySystem
         if (args.Target is not EntityUid prey)
             return;
 
-        //moves prey inside the person
         var container = _containerSystem.EnsureContainer<Container>(args.User, "vore_container");
+        
+        //as a way to prevent too many entities to be devoured
+        if (container.ContainedEntities.Count > args.MaxPrey){
+            _popupSystem.PopupEntity("You are too full to swallow more prey.", args.User, args.User);
+            return;
+        }
+
+        //moves prey inside the person
         _containerSystem.Insert(prey, container);
         
         /*make the prey immune to space+temp+breathing to avoid consent concerns from outside influence
@@ -203,7 +210,7 @@ public sealed class VoreSystem : EntitySystem
     }
 
     /// <summary>
-    /// in case the user gets destroyed through for example singulo
+    /// in case the user gets destroyed through for example singulo or gibbing
     /// </summary>
     private void OnDestroyedRemoveContent(EntityUid uid, VoreComponent comp, DestructionEventArgs args){
     OnTryReleasePrey(uid);

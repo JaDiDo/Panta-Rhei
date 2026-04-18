@@ -7,4 +7,14 @@ namespace Content.Shared._Floof.Vore;
 [RegisterComponent]
 public sealed partial class VoreComponent : Component{}
 [Serializable, NetSerializable]
-public sealed partial class OnVoreDoAfter : SimpleDoAfterEvent{}
+public sealed partial class OnVoreDoAfter : SimpleDoAfterEvent{
+    /// <summary>
+    /// Maximum number of prey this entity can hold.
+    /// </summary>
+    [DataField("maxPrey")]
+    public int MaxPrey = 2;
+    public OnVoreDoAfter(int maxPrey)
+    {
+        MaxPrey = maxPrey;
+    }
+}
