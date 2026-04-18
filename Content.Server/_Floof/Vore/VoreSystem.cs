@@ -16,6 +16,7 @@ using Content.Shared._Common.Consent;
 using Content.Shared.Verbs;
 using Content.Shared.Polymorph;
 using Content.Shared.Destructible;
+using Robust.Shared.Configuration;
 namespace Content.Server._Floof.Vore;
 
 public sealed class VoreSystem : EntitySystem
@@ -24,7 +25,8 @@ public sealed class VoreSystem : EntitySystem
     [Dependency] private readonly SharedContainerSystem _containerSystem = default!;
     [Dependency] private readonly SharedDoAfterSystem _doAfterSystem = default!;
     [Dependency] private readonly SharedPopupSystem _popupSystem = default!;
-    
+    [Dependency] private readonly IConfigurationManager _cfg = default!;
+
     public static readonly ProtoId<ConsentTogglePrototype> isPred = "PredVore";
     public static readonly ProtoId<ConsentTogglePrototype> isPrey = "PreyVore";
     private bool SuppressEscapeMessage = false;
@@ -56,6 +58,10 @@ public sealed class VoreSystem : EntitySystem
     private void OnGetVerbs(EntityUid uid, VoreComponent comp, GetVerbsEvent<Verb> args){
         var user = args.User;
         var target = args.Target;
+
+        // using command to turn on/off verb components
+        if (!_cfg.GetCVar(VoreCVars.VoreEnabled))
+            return;
         
         // no self activation, only there to remove your own prey and not have other intervene or have others see that you have prey
         if (user == target){
