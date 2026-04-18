@@ -158,9 +158,7 @@ public sealed class VoreSystem : EntitySystem
         
         /*make the prey immune to space+temp+breathing to avoid consent concerns from outside influence
         gets removed after escaping or being forcefully ejected by pred*/
-        EnsureComp<PressureImmunityComponent>(prey);
-        EnsureComp<BreathingImmunityComponent>(prey);
-        EnsureComp<TemperatureImmunityComponent >(prey);
+        ApplyStomachImmunities(prey);
     }
 
     /// <summary>
@@ -175,11 +173,7 @@ public sealed class VoreSystem : EntitySystem
             // in case prey escapes themself 
             SuppressEscapeMessage = true;
             _containerSystem.Remove(prey, container);
-            
-            // remove the given immunity components
-            RemComp<PressureImmunityComponent>(prey);
-            RemComp<BreathingImmunityComponent>(prey);
-            RemComp<TemperatureImmunityComponent>(prey);
+            RemoveStomachImmunities(prey);
             _popupSystem.PopupEntity("You have been released!", prey, prey);
         }
         _popupSystem.PopupEntity("You release your prey.", pred, pred);
@@ -199,11 +193,8 @@ public sealed class VoreSystem : EntitySystem
             return;
         }
 
-        // remove the given immunity components
         var prey = args.Entity;
-        RemComp<PressureImmunityComponent>(prey);
-        RemComp<BreathingImmunityComponent>(prey);
-        RemComp<TemperatureImmunityComponent>(prey);
+        RemoveStomachImmunities(prey);
         _popupSystem.PopupEntity("You struggle free!", prey, prey);
         _popupSystem.PopupEntity("Your prey escaped!", uid, uid);
     }
@@ -219,26 +210,54 @@ public sealed class VoreSystem : EntitySystem
     /// in case the user gets destroyed through for example singulo or gibbing
     /// </summary>
     private void OnDestroyedRemoveContent(EntityUid uid, VoreComponent comp, DestructionEventArgs args){
-    OnTryReleasePrey(uid);
+        OnTryReleasePrey(uid);
     }
 
     /// <summary>
-    /// in case of polymorp scenarios such as kitsune transfer all the content inside the new body
+    /// in case of polymorp scenarios such as kitsune release all the content
     /// </summary>
     private void OnPolymorphedTransferContent(EntityUid uid, VoreComponent comp, PolymorphedEvent args){   
-        /** TODO 
-        only works from one way because of the deletion of mobs
-        its a temporay fix to avoid RR from transformation
-        */
-        var oldBody = args.OldEntity;
-        var newBody = args.NewEntity;
-        if (!_containerSystem.TryGetContainer(oldBody, "vore_container", out var oldContainer))
-            return;
-        var newContainer = _containerSystem.EnsureContainer<Container>(newBody, "vore_container");
-        var contents = new List<EntityUid>(oldContainer.ContainedEntities);
-        foreach (var entity in contents){
-            _containerSystem.Remove(entity, oldContainer);
-            _containerSystem.Insert(entity, newContainer);
+        OnTryReleasePrey(uid);
+    }
+    
+    /// <summary>
+    /// the prey needs to have certain components such as pressure immunity
+    /// for consent purposes -> having others avoid stumbling on scenarios
+    /// </summary>
+    private void ApplyStomachImmunities(EntityUid prey){
+        var tracker = EnsureComp<VoreImmunityTrackerComponent>(prey);
+        if (!HasComp<PressureImmunityComponent>(prey))
+        {
+            EnsureComp<PressureImmunityComponent>(prey);
+            tracker.AddedPressure = true;
         }
+
+        if (!HasComp<BreathingImmunityComponent>(prey))
+        {
+            EnsureComp<BreathingImmunityComponent>(prey);
+            tracker.AddedBreathing = true;
+        }
+
+        if (!HasComp<TemperatureImmunityComponent>(prey))
+        {
+            EnsureComp<TemperatureImmunityComponent>(prey);
+            tracker.AddedTemperature = true;
+        }
+    }
+
+    /// <summary>
+    /// the removal of the components after leaving a container
+    /// to avoid intentional and accidental exploitation
+    /// </summary>
+    private void RemoveStomachImmunities(EntityUid prey){
+        if (!TryComp<VoreImmunityTrackerComponent>(prey, out var tracker))
+            return;
+        if (tracker.AddedPressure)
+            RemComp<PressureImmunityComponent>(prey);
+        if (tracker.AddedBreathing)
+            RemComp<BreathingImmunityComponent>(prey);
+        if (tracker.AddedTemperature)
+            RemComp<TemperatureImmunityComponent>(prey);
+        RemComp<VoreImmunityTrackerComponent>(prey);
     }
 }

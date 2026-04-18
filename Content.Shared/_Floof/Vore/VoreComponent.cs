@@ -18,3 +18,10 @@ public sealed partial class OnVoreDoAfter : SimpleDoAfterEvent{
         MaxPrey = maxPrey;
     }
 }
+[RegisterComponent]
+public sealed partial class VoreImmunityTrackerComponent : Component
+{
+    public bool AddedPressure;
+    public bool AddedBreathing;
+    public bool AddedTemperature;
+}
