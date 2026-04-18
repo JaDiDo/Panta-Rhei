@@ -15,6 +15,7 @@ using Content.Shared.Body.Events;
 using Content.Shared._Common.Consent;
 using Content.Shared.Verbs;
 using Content.Shared.Polymorph;
+using Content.Shared.Destructible;
 namespace Content.Server._Floof.Vore;
 
 public sealed class VoreSystem : EntitySystem
@@ -36,6 +37,7 @@ public sealed class VoreSystem : EntitySystem
         SubscribeLocalEvent<VoreComponent, OnVoreDoAfter>(OnVoreDoAfter);
         SubscribeLocalEvent<VoreComponent, EntRemovedFromContainerMessage>(OnVoreRemovedFromContainer);
         SubscribeLocalEvent<VoreComponent, BeingGibbedEvent>(OnGibbedRemoveContent);
+        SubscribeLocalEvent<VoreComponent, DestructionEventArgs>(OnDestroyedRemoveContent);
         SubscribeLocalEvent<VoreComponent, PolymorphedEvent>(OnPolymorphedTransferContent);
     }
 
@@ -198,6 +200,13 @@ public sealed class VoreSystem : EntitySystem
     /// </summary>
     private void OnGibbedRemoveContent(EntityUid uid, VoreComponent comp, BeingGibbedEvent args){
         OnTryReleasePrey(uid);
+    }
+
+    /// <summary>
+    /// in case the user gets destroyed through for example singulo
+    /// </summary>
+    private void OnDestroyedRemoveContent(EntityUid uid, VoreComponent comp, DestructionEventArgs args){
+    OnTryReleasePrey(uid);
     }
 
     /// <summary>
