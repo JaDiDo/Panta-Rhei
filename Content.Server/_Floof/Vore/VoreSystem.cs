@@ -80,11 +80,11 @@ public sealed class VoreSystem : EntitySystem
             return;
 
         // to avoid feeding yourself to items
-        if (!EntityManager.HasComponent<BodyComponent>(target))
+        if (!HasComp<BodyComponent>(target))
             return;
         
         // to avoid empty mind NPCs
-        if (!EntityManager.TryGetComponent<MindContainerComponent>(target, out var mindContainer) || mindContainer.Mind == null)
+        if (!TryComp<MindContainerComponent>(target, out var mindContainer) || mindContainer.Mind == null)
             return;
 
         //no verbs for swallowed people
@@ -191,7 +191,7 @@ public sealed class VoreSystem : EntitySystem
 
         var prey = args.Entity;
 
-        // in case prey escapes by themselves to avoid escape popups
+        // Check if this was an intentional release by the pred (not a self-escape)
         if (TryComp<VoreComponent>(prey, out var preyComp) && preyComp.IntentionalRelease){
             preyComp.IntentionalRelease = false;
             return;
