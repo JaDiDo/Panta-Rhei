@@ -29,3 +29,8 @@
   id: PreyVore
   name: Vore Pred
   description: Allow yourself to be pred or have prey insert themselves into you.
+
+- type: consentToggle
+  id: Digestable
+  name: Digestable
+  description: Allow yourself to be digested. WARNING - BEING DIGESTED WILL ROUND-REMOVE YOU.

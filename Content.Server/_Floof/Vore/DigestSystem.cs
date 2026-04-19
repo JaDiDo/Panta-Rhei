@@ -5,9 +5,9 @@ using Content.Shared.Popups;
 using Content.Shared.Verbs;
 using Content.Shared._Floof.Vore;
 using Content.Shared.Mind.Components;
-using Content.Server.Bed.Cryostorage;
-using Content.Shared.Bed.Cryostorage;
+using Content.Shared._Common.Consent;
 using Content.Server.Mind;
+using Content.Server.Station.Components;
 using Content.Server.Station.Systems;
 using Content.Server.StationRecords.Systems;
 using Content.Shared.StationRecords;
@@ -17,10 +17,11 @@ public sealed class DigestSystem : EntitySystem
 {
     [Dependency] private readonly SharedContainerSystem _containerSystem = default!;
     [Dependency] private readonly SharedPopupSystem _popupSystem = default!;
-    [Dependency] private readonly CryostorageSystem _cryo = default!;
     [Dependency] private readonly MindSystem _mind = default!;
     [Dependency] private readonly StationSystem _station = default!;
     [Dependency] private readonly StationRecordsSystem _stationRecords = default!;
+    [Dependency] private readonly StationJobsSystem _stationJobs = default!;
+    [Dependency] private readonly SharedConsentSystem _consent = default!;
 
     public override void Initialize()
     {
@@ -28,7 +29,8 @@ public sealed class DigestSystem : EntitySystem
     }
 
     /// <summary>
-    /// 
+    /// creates a verb only showing up if the pred has any content in their stomach
+    /// only shows if at least one prey has consented to being digested
     /// </summary>
     private void OnGetVerbs(EntityUid uid, DigestComponent comp, GetVerbsEvent<Verb> args)
     {
@@ -41,6 +43,21 @@ public sealed class DigestSystem : EntitySystem
         var container = _containerSystem.EnsureContainer<Container>(user, "vore_container");
         if (container.ContainedEntities.Count == 0)
             return;
+
+        // Only show verb if at least one prey has consented to digestion
+        var hasConsentingPrey = false;
+        foreach (var prey in container.ContainedEntities)
+        {
+            if (_consent.HasConsent(prey, "Digestable"))
+            {
+                hasConsentingPrey = true;
+                break;
+            }
+        }
+
+        if (!hasConsentingPrey)
+            return;
+
         args.Verbs.Add(new Verb
         {
             Text = "Digest",
@@ -49,13 +66,19 @@ public sealed class DigestSystem : EntitySystem
     }
 
     /// <summary>
-    /// 
+    /// for consent purposes a prey must leave no trace
+    /// also job slots should be opened hence treating it like going cryo
+    /// only digests prey that have consented to the Digestable toggle
     /// </summary>
     private void TryDigest(EntityUid pred)
     {
         _popupSystem.PopupEntity("You begin digesting your prey...", pred, pred);
         var container = _containerSystem.EnsureContainer<Container>(pred, "vore_container");
         foreach (var prey in container.ContainedEntities){
+            // Only digest prey that have consented
+            if (!_consent.HasConsent(prey, "Digestable"))
+                continue;
+
             TurnOffCords(prey);
             _popupSystem.PopupEntity("You are being digested!", prey, prey);
             HideDeath(prey);
@@ -65,6 +88,9 @@ public sealed class DigestSystem : EntitySystem
         }
     }
 
+    /// <summary>
+    /// will remove the prey from the manifest so people wont report him as missing from their job
+    /// </summary>
     private void RemoveFromManifest(EntityUid prey)
     {
         var station = _station.GetOwningStation(prey);
@@ -79,18 +105,49 @@ public sealed class DigestSystem : EntitySystem
             _stationRecords.RemoveRecord(key, stationRecords);
         }
     }
-
-//TODO your job should be opened
-//https://github.com/Floof-Station/Panta-Rhei/blob/f6cd5617727b34f1bb7b700c79279aa4d84c8b4e/Content.Server/Bed/Cryostorage/CryostorageSystem.cs#L239
-    private void ReopenJob(EntityUid prey){}
+    
+    /// <summary>
+    /// will reopen a job slot so the stations performance wont be affected
+    /// </summary>
+    private void ReopenJob(EntityUid prey)
+    {
+        // TODO removed only their in case of items
+        if (!_mind.TryGetMind(prey, out var mindId, out var mindComp))
+            return;
+        var userId = mindComp.UserId;
+        if (userId == null)
+            return;
+        // Add back the job slots for all stations
+        foreach (var station in _station.GetStationsSet())
+        {
+            if (!TryComp<StationJobsComponent>(station, out var stationJobs))
+                continue;
+            if (!_stationJobs.TryGetPlayerJobs(station, userId.Value, out var jobs, stationJobs))
+                continue;
+            foreach (var job in jobs)
+            {
+                _stationJobs.TryAdjustJobSlot(station, job, 1, clamp: true);
+            }
+            _stationJobs.TryRemovePlayerJobs(station, userId.Value, stationJobs);
+        }
+    }
 
 //TODO cords should be auto turned off
-    private void TurnOffCords(EntityUid prey){}
+    private void TurnOffCords(EntityUid prey)
+    {
+        //     DisableCord(cord);
+    }
 
 //TODO the death notification should be hidden
 //https://github.com/Floof-Station/Panta-Rhei/blob/f6cd5617727b34f1bb7b700c79279aa4d84c8b4e/Content.Shared/Mobs/Systems/MobStateSystem.cs
-    private void HideDeath(EntityUid prey){}
+    private void HideDeath(EntityUid prey)
+    {
+        // TODO implementation to hide death
+    }
 
 //TODO items should be gone to erase your tracks (alongside you?)
-    private void RemovePrey(EntityUid prey){}
+    private void RemovePrey(EntityUid prey)
+    {
+        QueueDel(prey);
+    }
 }
