@@ -49,6 +49,7 @@ public sealed class VoreSystem : EntitySystem
     /// </summary>
     private void OnMindStartup(EntityUid uid, MindContainerComponent comp, ComponentStartup args){
         EnsureComp<VoreComponent>(uid);
+        EnsureComp<VoreMenuComponent>(uid);
     }
 
     /// <summary>
