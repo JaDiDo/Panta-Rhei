@@ -29,7 +29,6 @@ public sealed class VoreSystem : EntitySystem
 
     public static readonly ProtoId<ConsentTogglePrototype> isPred = "PredVore";
     public static readonly ProtoId<ConsentTogglePrototype> isPrey = "PreyVore";
-    private bool SuppressEscapeMessage = false;
 
     public override void Initialize()
     {
@@ -129,9 +128,10 @@ public sealed class VoreSystem : EntitySystem
             BreakOnMove = true,
             BreakOnDamage = true,      
         };
+        if (!_doAfterSystem.TryStartDoAfter(doAfterArgs))
+            return;
         _popupSystem.PopupEntity($"You are devouring someone!", user, user);
         _popupSystem.PopupEntity($"You are being devoured!", target, target);
-        _doAfterSystem.TryStartDoAfter(doAfterArgs);
     }
 
     /// <summary>
@@ -170,8 +170,10 @@ public sealed class VoreSystem : EntitySystem
         var preyList = new List<EntityUid>(container.ContainedEntities);
         //remove everything from people to items
         foreach (var prey in preyList){
-            // in case prey escapes themself 
-            SuppressEscapeMessage = true;
+            // in case pred intentionally releases the prey to avoid escape popups
+            if (TryComp<VoreComponent>(prey, out var preyComp))
+                preyComp.IntentionalRelease = true;
+
             _containerSystem.Remove(prey, container);
             RemoveStomachImmunities(prey);
             _popupSystem.PopupEntity("You have been released!", prey, prey);
@@ -186,14 +188,15 @@ public sealed class VoreSystem : EntitySystem
     private void OnVoreRemovedFromContainer(EntityUid uid, VoreComponent comp, EntRemovedFromContainerMessage args){
         if (args.Container.ID != "vore_container")
             return;
-        
-        // in case prey escapes themself 
-        if (SuppressEscapeMessage){
-            SuppressEscapeMessage = false;
+
+        var prey = args.Entity;
+
+        // in case prey escapes by themselves to avoid escape popups
+        if (TryComp<VoreComponent>(prey, out var preyComp) && preyComp.IntentionalRelease){
+            preyComp.IntentionalRelease = false;
             return;
         }
 
-        var prey = args.Entity;
         RemoveStomachImmunities(prey);
         _popupSystem.PopupEntity("You struggle free!", prey, prey);
         _popupSystem.PopupEntity("Your prey escaped!", uid, uid);
