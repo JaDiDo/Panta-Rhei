@@ -97,8 +97,8 @@ public sealed class VoreSystem : EntitySystem
             return;
 
         // devour (pred → prey)
-        if (_consentSystem.HasConsent(user, isPrey)
-            && _consentSystem.HasConsent(target, isPred)){
+        if (_consentSystem.HasConsent(user, isPred)
+            && _consentSystem.HasConsent(target, isPrey)){
             args.Verbs.Add(new Verb
             {
                 Text = "Devour",
@@ -107,8 +107,8 @@ public sealed class VoreSystem : EntitySystem
         }
 
         // insert self (prey → pred)
-        if (_consentSystem.HasConsent(user, isPred)
-            && _consentSystem.HasConsent(target, isPrey)){
+        if (_consentSystem.HasConsent(user, isPrey)
+            && _consentSystem.HasConsent(target, isPred)){
             args.Verbs.Add(new Verb
             {
                 Text = "Insert Self",
