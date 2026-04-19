@@ -9,5 +9,5 @@ public sealed class VoreCVars
     /// Enables or disables vore verbs and interactions.
     /// </summary>
     public static readonly CVarDef<bool> VoreEnabled =
-        CVarDef.Create("floof.vore_enabled", true, CVar.SERVER | CVar.REPLICATED);
+        CVarDef.Create("game.vore_enabled", true, CVar.SERVER | CVar.REPLICATED);
 }
