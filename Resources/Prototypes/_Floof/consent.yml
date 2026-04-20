@@ -21,12 +21,12 @@
   description: Toggle this on to disallow yourself from being cloned via paradox anomalies.
 
 - type: consentToggle
-  id: PredVore
+  id: PreyVore
   name: Vore Prey
   description: Allow yourself to be prey or insert yourself into a pred.
 
 - type: consentToggle
-  id: PreyVore
+  id: PredVore
   name: Vore Pred
   description: Allow yourself to be pred or have prey insert themselves into you.
 
