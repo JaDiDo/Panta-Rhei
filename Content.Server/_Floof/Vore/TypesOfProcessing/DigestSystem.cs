@@ -84,6 +84,7 @@ public sealed class DigestSystem : EntitySystem
             HideDeath(prey);
             RemoveFromManifest(prey);
             ReopenJob(prey);
+            CryoAnnounce(prey);
             RemovePrey(prey);
         }
     }
@@ -142,7 +143,13 @@ public sealed class DigestSystem : EntitySystem
 //https://github.com/Floof-Station/Panta-Rhei/blob/f6cd5617727b34f1bb7b700c79279aa4d84c8b4e/Content.Shared/Mobs/Systems/MobStateSystem.cs
     private void HideDeath(EntityUid prey)
     {
-        // TODO implementation to hide death
+        // TODO
+    }
+
+//TODO make an announcement so you dont consider being missed (might need a delay to not interrupt the scene)
+    private void CryoAnnounce(EntityUid prey)
+    {
+        // TODO
     }
 
 //TODO items should be gone to erase your tracks (alongside you?)
@@ -150,4 +157,5 @@ public sealed class DigestSystem : EntitySystem
     {
         QueueDel(prey);
     }
+
 }
