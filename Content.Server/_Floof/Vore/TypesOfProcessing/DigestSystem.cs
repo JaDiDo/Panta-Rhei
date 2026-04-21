@@ -12,6 +12,8 @@ using Content.Server.Station.Systems;
 using Content.Server.StationRecords.Systems;
 using Content.Shared.StationRecords;
 using Content.Server.Chat.Systems;
+using Content.Shared.Medical.SuitSensors;
+using Content.Shared.Medical.SuitSensor;
 namespace Content.Server._Floof.Vore;
 
 public sealed class DigestSystem : EntitySystem
@@ -24,6 +26,7 @@ public sealed class DigestSystem : EntitySystem
     [Dependency] private readonly StationJobsSystem _stationJobs = default!;
     [Dependency] private readonly SharedConsentSystem _consent = default!;
     [Dependency] private readonly ChatSystem _chatSystem = default!;
+    [Dependency] private readonly SharedSuitSensorSystem _suitSensor = default!;
 
     public override void Initialize()
     {
@@ -32,61 +35,68 @@ public sealed class DigestSystem : EntitySystem
 
     /// <summary>
     /// creates a verb only showing up if the pred has any content in their stomach
-    /// only shows if at least one prey has consented to being digested
+    /// and only shows if at least one prey has consented to being digested
     /// </summary>
     private void OnGetVerbs(EntityUid uid, DigestComponent comp, GetVerbsEvent<Verb> args)
     {
         var user = args.User;
         if (user != uid)
             return;
-
         if (!args.CanInteract || !args.CanAccess)
             return;
         var container = _containerSystem.EnsureContainer<Container>(user, "vore_container");
+        
+        //only shows verb if there is atleast one prey in the stomach
         if (container.ContainedEntities.Count == 0)
             return;
-
         // Only show verb if at least one prey has consented to digestion
         var hasConsentingPrey = false;
-        foreach (var prey in container.ContainedEntities)
-        {
-            if (_consent.HasConsent(prey, "Digestable"))
-            {
+        foreach (var prey in container.ContainedEntities){
+            if (_consent.HasConsent(prey, "Digestable")){
                 hasConsentingPrey = true;
                 break;
             }
         }
-
         if (!hasConsentingPrey)
             return;
 
-    foreach (var prey in container.ContainedEntities)
-    {
-        if (!_consent.HasConsent(prey, "Digestable"))
-            continue;
+        //will list all prey in the stomach that have consented to digestion and give the option to digest them
+        foreach (var prey in container.ContainedEntities){
+            if (!_consent.HasConsent(prey, "Digestable"))
+                continue;
+            var preyName = Name(prey);
+            args.Verbs.Add(new Verb
+            {
+                Text = $"Digest {preyName}",
+                Category = VerbCategory.Interaction,
+                Act = () => TryDigest(prey)
+            });
+        }
 
-        var preyName = Name(prey);
-
+        //TODO stop digestion
+        /*
         args.Verbs.Add(new Verb
-        {
-            Text = $"Digest {preyName}",
-            Category = VerbCategory.Interaction,
-            Act = () => TryDigest(prey)
-        });
-    }
+            {
+                Text = $"Digest {preyName}",
+                Category = VerbCategory.Interaction,
+                Act = () => TryDigest(prey)
+            });
+            */
     }
 
 
     /// <summary>
     /// for consent purposes a prey must leave no trace
-    /// also job slots should be opened hence treating it like going cryo
-    /// only digests prey that have consented to the Digestable toggle
+    /// thats why several methods are called to hide the prey and make it look like they went cryo instead of being digested
     /// </summary>
     private void TryDigest(EntityUid prey)
     {
 //TODO        _popupSystem.PopupEntity("You begin digesting your prey...", pred, pred);
+            //before complete digestion
             TurnOffCords(prey);
             _popupSystem.PopupEntity("You are being digested!", prey, prey);
+            //after complete digestion
+            //TODO instead of health damage artificial health?
             HideDeath(prey);
             CryoAnnounce(prey);
             RemoveFromManifest(prey);
@@ -99,8 +109,7 @@ public sealed class DigestSystem : EntitySystem
     /// <summary>
     /// will remove the prey from the manifest so people wont report him as missing from their job
     /// </summary>
-    private void RemoveFromManifest(EntityUid prey)
-    {
+    private void RemoveFromManifest(EntityUid prey){
         var station = _station.GetOwningStation(prey);
         if (station == null || !TryComp<StationRecordsComponent>(station, out var stationRecords))
             return;
@@ -140,39 +149,61 @@ public sealed class DigestSystem : EntitySystem
         }
     }
 
-//TODO cords should be auto turned off
-    private void TurnOffCords(EntityUid prey)
-    {
-        //     DisableCord(cord);
+    /// <summary>
+    /// will turn off suit sensors so that the preys location wont be visible
+    /// </summary>
+    private void TurnOffCords(EntityUid prey){
+        _suitSensor.SetAllSensors(prey, SuitSensorMode.SensorOff);
     }
 
 //TODO the death notification should be hidden
 //https://github.com/Floof-Station/Panta-Rhei/blob/f6cd5617727b34f1bb7b700c79279aa4d84c8b4e/Content.Shared/Mobs/Systems/MobStateSystem.cs
-    private void HideDeath(EntityUid prey)
-    {
+    private void HideDeath(EntityUid prey){
         // TODO
     }
 
-//TODO might need a delay to not interrupt the scene)
     /// <summary>
     /// Will classify you as going cryo to the station and announce it as such
     /// to avoid people reporting you as missing
+    /// has been requested after a vote that won by 68 percent
     /// </summary>
-    private void CryoAnnounce(EntityUid prey)
-    {
+//TODO might need a delay to not interrupt the scene)
+    private void CryoAnnounce(EntityUid prey){
         var station = _station.GetOwningStation(prey);
         if (station == null)
             return;
         var name = Name(prey);
-    //TODO ADD JOB AND ENTITY
+        if (!_mind.TryGetMind(prey, out var mindId, out var mindComp))
+        return;
+
+        var userId = mindComp.UserId;
+        if (userId == null)
+            return;
+
+        string? jobName = null;
+
+    // Find their job on this station
+        if (TryComp<StationJobsComponent>(station.Value, out var stationJobs)){
+            if (_stationJobs.TryGetPlayerJobs(station.Value, userId.Value, out var jobs, stationJobs))
+            {
+                foreach (var job in jobs)
+                {
+                    jobName = job; // take first job
+                    break;
+                }
+            }
+        }
+    //No job means no announcement
+    if (jobName == null)
+        return;
+    //TODO ADD ENTITY
         _chatSystem.DispatchStationAnnouncement(
             station.Value,
             Loc.GetString(
                 "earlyleave-cryo-announcement",
                 ("character", name),
                 //("entity", ent.Owner),
-                //TODO JOB
-                ("job", "Unknown")
+                ("job", jobName)
             ),
             Loc.GetString("earlyleave-cryo-sender"),
             playDefaultSound: false
@@ -182,7 +213,9 @@ public sealed class DigestSystem : EntitySystem
 //TODO items should be gone to erase your tracks (alongside you?)
     private void RemovePrey(EntityUid prey)
     {
-        QueueDel(prey);
+        //TODO needs to be cancelable
+        //TODO readd it after testing
+        //QueueDel(prey);
     }
 
 }
