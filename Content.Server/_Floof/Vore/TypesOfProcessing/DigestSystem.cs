@@ -11,6 +11,7 @@ using Content.Server.Station.Components;
 using Content.Server.Station.Systems;
 using Content.Server.StationRecords.Systems;
 using Content.Shared.StationRecords;
+using Content.Server.Chat.Systems;
 namespace Content.Server._Floof.Vore;
 
 public sealed class DigestSystem : EntitySystem
@@ -22,6 +23,7 @@ public sealed class DigestSystem : EntitySystem
     [Dependency] private readonly StationRecordsSystem _stationRecords = default!;
     [Dependency] private readonly StationJobsSystem _stationJobs = default!;
     [Dependency] private readonly SharedConsentSystem _consent = default!;
+    [Dependency] private readonly ChatSystem _chatSystem = default!;
 
     public override void Initialize()
     {
@@ -58,35 +60,40 @@ public sealed class DigestSystem : EntitySystem
         if (!hasConsentingPrey)
             return;
 
+    foreach (var prey in container.ContainedEntities)
+    {
+        if (!_consent.HasConsent(prey, "Digestable"))
+            continue;
+
+        var preyName = Name(prey);
+
         args.Verbs.Add(new Verb
         {
-            Text = "Digest",
-            Act = () => TryDigest(user)
+            Text = $"Digest {preyName}",
+            Category = VerbCategory.Interaction,
+            Act = () => TryDigest(prey)
         });
     }
+    }
+
 
     /// <summary>
     /// for consent purposes a prey must leave no trace
     /// also job slots should be opened hence treating it like going cryo
     /// only digests prey that have consented to the Digestable toggle
     /// </summary>
-    private void TryDigest(EntityUid pred)
+    private void TryDigest(EntityUid prey)
     {
-        _popupSystem.PopupEntity("You begin digesting your prey...", pred, pred);
-        var container = _containerSystem.EnsureContainer<Container>(pred, "vore_container");
-        foreach (var prey in container.ContainedEntities){
-            // Only digest prey that have consented
-            if (!_consent.HasConsent(prey, "Digestable"))
-                continue;
-
+//TODO        _popupSystem.PopupEntity("You begin digesting your prey...", pred, pred);
             TurnOffCords(prey);
             _popupSystem.PopupEntity("You are being digested!", prey, prey);
             HideDeath(prey);
+            CryoAnnounce(prey);
             RemoveFromManifest(prey);
             ReopenJob(prey);
-            CryoAnnounce(prey);
             RemovePrey(prey);
-        }
+            //TODO remove "escape" message
+
     }
 
     /// <summary>
@@ -146,10 +153,30 @@ public sealed class DigestSystem : EntitySystem
         // TODO
     }
 
-//TODO make an announcement so you dont consider being missed (might need a delay to not interrupt the scene)
+//TODO might need a delay to not interrupt the scene)
+    /// <summary>
+    /// Will classify you as going cryo to the station and announce it as such
+    /// to avoid people reporting you as missing
+    /// </summary>
     private void CryoAnnounce(EntityUid prey)
     {
-        // TODO
+        var station = _station.GetOwningStation(prey);
+        if (station == null)
+            return;
+        var name = Name(prey);
+    //TODO ADD JOB AND ENTITY
+        _chatSystem.DispatchStationAnnouncement(
+            station.Value,
+            Loc.GetString(
+                "earlyleave-cryo-announcement",
+                ("character", name),
+                //("entity", ent.Owner),
+                //TODO JOB
+                ("job", "Unknown")
+            ),
+            Loc.GetString("earlyleave-cryo-sender"),
+            playDefaultSound: false
+        );
     }
 
 //TODO items should be gone to erase your tracks (alongside you?)
