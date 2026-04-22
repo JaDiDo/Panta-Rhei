@@ -2312,3 +2312,11 @@ Entries:
         remains a partial mystery.
   id: 288
   time: '2026-04-22T11:33:46.0000000+00:00'
+- author: JFerrix
+  changes:
+    - type: Fix
+      message: Fixed chitinid marking whitelist problem
+    - type: Fix
+      message: Fixed arachne age limit
+  id: 289
+  time: '2026-04-22T15:18:29.0000000+00:00'
