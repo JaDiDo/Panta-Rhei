@@ -2280,3 +2280,27 @@ Entries:
   changes: []
   id: 286
   time: '2026-04-21T09:22:41.0000000+00:00'
+- author: Mnemotechnician
+  changes:
+    - type: Add
+      message: >-
+        Reworked lewd traits. There's now a set of 4 base traits that give you
+        special organs that can produce or store liquids, and several traits
+        that modify their stats. Players who have chosen one of the existing
+        lewd traits will have to choose again.
+    - type: Add
+      message: >-
+        There's 12 new lewd interaction verbs available that are related to the
+        lewd traits. In order to use them or have others use them on you, you
+        need to enable a couple new consent toggles. Most of them require you to
+        have no inner clothing and no matching underwear (use the right click
+        menu to remove underwear markings if you have any). Keep in mind that
+        these interactions can be seen by others (within a 4m radius).
+    - type: Add
+      message: >-
+        Certain traits can now be excluded from the global trait limit. Lewd
+        traits are an example of that.
+    - type: Fix
+      message: The "help up" interaction should now work correctly.
+  id: 287
+  time: '2026-04-22T10:32:55.0000000+00:00'
