@@ -40,70 +40,65 @@ public sealed class DigestSystem : EntitySystem
     private void OnGetVerbs(EntityUid uid, DigestComponent comp, GetVerbsEvent<Verb> args)
     {
         var user = args.User;
+
+        //prevents self interaction
         if (user != uid)
             return;
+        
+        // only when reachable & interactable
         if (!args.CanInteract || !args.CanAccess)
             return;
+        
         var container = _containerSystem.EnsureContainer<Container>(user, "vore_container");
         
         //only shows verb if there is atleast one prey in the stomach
         if (container.ContainedEntities.Count == 0)
             return;
-        // Only show verb if at least one prey has consented to digestion
-        var hasConsentingPrey = false;
-        foreach (var prey in container.ContainedEntities){
-            if (_consent.HasConsent(prey, "Digestable")){
-                hasConsentingPrey = true;
-                break;
-            }
-        }
-        if (!hasConsentingPrey)
-            return;
 
-        //will list all prey in the stomach that have consented to digestion and give the option to digest them
+        //goes through all prey inside the stomach
         foreach (var prey in container.ContainedEntities){
-            if (!_consent.HasConsent(prey, "Digestable"))
-                continue;
             var preyName = Name(prey);
-            args.Verbs.Add(new Verb
-            {
-                Text = $"Digest {preyName}",
-                Category = VerbCategory.Interaction,
-                Act = () => TryDigest(prey)
-            });
-        }
+            
+            //only shows verb if the prey has consented to being digested
+            if (_consent.HasConsent(prey, "Digestable") && !comp.ActiveDigesting.Contains(prey)){
+                args.Verbs.Add(new Verb
+                {
+                    Text = $"Digest {preyName}",
+                    Category = VerbCategory.Interaction,
+                    Act = () => TryDigest(prey)
+                });
+            }
 
-        //TODO stop digestion
-        /*
-        args.Verbs.Add(new Verb
-            {
-                Text = $"Digest {preyName}",
-                Category = VerbCategory.Interaction,
-                Act = () => TryDigest(prey)
-            });
-            */
+            //only shows up if the prey is currently being digested
+            if (comp.ActiveDigesting.Contains(prey)){
+                args.Verbs.Add(new Verb
+                {
+                    Text = $"Stop digesting {preyName}",
+                    Category = VerbCategory.Interaction,
+                    Act = () => StopDigest(user, prey)
+                });
+            }
+        }            
     }
-
 
     /// <summary>
     /// for consent purposes a prey must leave no trace
     /// thats why several methods are called to hide the prey and make it look like they went cryo instead of being digested
     /// </summary>
-    private void TryDigest(EntityUid prey)
-    {
-//TODO        _popupSystem.PopupEntity("You begin digesting your prey...", pred, pred);
-            //before complete digestion
-            TurnOffCords(prey);
-            _popupSystem.PopupEntity("You are being digested!", prey, prey);
-            //after complete digestion
-            //TODO instead of health damage artificial health?
-            HideDeath(prey);
-            CryoAnnounce(prey);
-            RemoveFromManifest(prey);
-            ReopenJob(prey);
-            RemovePrey(prey);
-            //TODO remove "escape" message
+    private void TryDigest(EntityUid prey){
+        if (!_containerSystem.TryGetContainingContainer(prey, out var container))
+            return;
+        var pred = container.Owner;
+        if (!TryComp<DigestComponent>(pred, out var comp)) return;
 
+        _popupSystem.PopupEntity("You begin digesting your prey...", pred, pred);
+        _popupSystem.PopupEntity("You are being digested!", prey, prey);
+        comp.Health[prey] = comp.Max;
+        comp.Timer[prey] = 0f;
+        comp.ActiveDigesting.Add(prey);
+
+        //as a way of prevention of any interaction with the active digestion scene
+        TurnOffCords(prey);
     }
 
     /// <summary>
@@ -156,12 +151,6 @@ public sealed class DigestSystem : EntitySystem
         _suitSensor.SetAllSensors(prey, SuitSensorMode.SensorOff);
     }
 
-//TODO the death notification should be hidden
-//https://github.com/Floof-Station/Panta-Rhei/blob/f6cd5617727b34f1bb7b700c79279aa4d84c8b4e/Content.Shared/Mobs/Systems/MobStateSystem.cs
-    private void HideDeath(EntityUid prey){
-        // TODO
-    }
-
     /// <summary>
     /// Will classify you as going cryo to the station and announce it as such
     /// to avoid people reporting you as missing
@@ -182,40 +171,113 @@ public sealed class DigestSystem : EntitySystem
 
         string? jobName = null;
 
-    // Find their job on this station
         if (TryComp<StationJobsComponent>(station.Value, out var stationJobs)){
             if (_stationJobs.TryGetPlayerJobs(station.Value, userId.Value, out var jobs, stationJobs))
             {
                 foreach (var job in jobs)
                 {
-                    jobName = job; // take first job
+                    jobName = job; 
                     break;
                 }
             }
         }
+
+        
     //No job means no announcement
     if (jobName == null)
         return;
-    //TODO ADD ENTITY
-        _chatSystem.DispatchStationAnnouncement(
-            station.Value,
-            Loc.GetString(
-                "earlyleave-cryo-announcement",
-                ("character", name),
-                //("entity", ent.Owner),
-                ("job", jobName)
-            ),
-            Loc.GetString("earlyleave-cryo-sender"),
-            playDefaultSound: false
-        );
+
+    _chatSystem.DispatchStationAnnouncement(
+        station.Value,
+        Loc.GetString(
+            "earlyleave-cryo-announcement",
+            ("character", name),
+            ("entity", GetNetEntity(prey)),
+            ("job", jobName)
+        ),
+        Loc.GetString("earlyleave-cryo-sender"),
+        playDefaultSound: false
+    );
     }
 
-//TODO items should be gone to erase your tracks (alongside you?)
-    private void RemovePrey(EntityUid prey)
+
+
+public override void Update(float frameTime)
+{
+    var query = EntityQueryEnumerator<DigestComponent>();
+
+    while (query.MoveNext(out var pred, out var comp))
     {
-        //TODO needs to be cancelable
-        //TODO readd it after testing
-        //QueueDel(prey);
-    }
+        var remove = new List<EntityUid>();
 
+        foreach (var prey in comp.Health.Keys)
+        {
+            // Only process actively digesting prey
+            if (!comp.ActiveDigesting.Contains(prey))
+                continue;
+
+            if (!EntityManager.EntityExists(prey))
+            {
+                remove.Add(prey);
+                continue;
+            }
+
+            if (!_containerSystem.TryGetContainingContainer(prey, out var container) ||
+                container.ID != "vore_container")
+            {
+                remove.Add(prey);
+                continue;
+            }
+
+            comp.Timer[prey] += frameTime;
+            if (comp.Timer[prey] < 1f)
+                continue;
+
+            comp.Timer[prey] -= 1f;
+
+            comp.Health[prey]--;
+
+            Console.WriteLine($"[Digest] {ToPrettyString(prey)}: {comp.Health[prey]}/{comp.Max}");
+
+            if (comp.Health[prey] <= 0)
+            {
+                FinishDigest(prey);
+                remove.Add(prey);
+            }
+        }
+
+        foreach (var p in remove)
+        {
+            comp.Health.Remove(p);
+            comp.Timer.Remove(p);
+            comp.ActiveDigesting.Remove(p); // safety cleanup
+        }
+    }
+}
+
+    private void FinishDigest(EntityUid prey){
+        CryoAnnounce(prey);
+        RemoveFromManifest(prey);
+        ReopenJob(prey);
+        if (_containerSystem.TryGetContainingContainer(prey, out var container) &&
+        TryComp<DigestComponent>(container.Owner, out var comp)){
+            comp.ActiveDigesting.Remove(prey);
+            comp.Health.Remove(prey);
+            comp.Timer.Remove(prey);
+        }   
+        QueueDel(prey);
+}
+    /// <summary>
+    /// Will stop the active digestion of a prey
+    /// </summary>
+    private void StopDigest(EntityUid pred, EntityUid prey){
+        if (!TryComp<DigestComponent>(pred, out var comp))
+            return;
+        comp.ActiveDigesting.Remove(prey);
+        comp.Health.Remove(prey);
+        comp.Timer.Remove(prey);
+
+        _popupSystem.PopupEntity("Digestion stopped.", pred, pred);
+        _popupSystem.PopupEntity("Digestion stopped.", prey, prey);
+    }
 }
