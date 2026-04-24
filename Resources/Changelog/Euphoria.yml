@@ -2362,3 +2362,11 @@ Entries:
         languages (sign languages and universal).
   id: 294
   time: '2026-04-23T10:18:17.0000000+00:00'
+- author: Dunrab
+  changes:
+    - type: Tweak
+      message: >-
+        Cheese slices can now be used in burger stacks and take up a 1x1 slot in
+        your backpack.
+  id: 295
+  time: '2026-04-24T05:33:25.0000000+00:00'
