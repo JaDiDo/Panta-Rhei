@@ -150,8 +150,15 @@ public sealed class VoreSystem : EntitySystem
         var pred = uid;
         var container = _containerSystem.EnsureContainer<Container>(args.User, "vore_container");
         
+        var count = 0;
+        //only counts entities with bodies meaning no items
+        foreach (var e in container.ContainedEntities){
+            if (HasComp<BodyComponent>(e))
+                count++;
+            Console.WriteLine($"Contained Entity: {e}, Count: {count}");
+        }
         //as a way to prevent too many entities to be devoured
-        if (container.ContainedEntities.Count > args.MaxPrey){
+        if (count >= args.MaxPrey){
             _popupSystem.PopupEntity("You are too full to swallow more prey.", args.User, args.User);
             return;
         }
@@ -167,6 +174,10 @@ public sealed class VoreSystem : EntitySystem
         ApplyStomachImmunities(prey);
     }
 
+    /// <summary>
+    /// makes sure the prey is not inside any other container such as 
+    /// bags or being carried by someone before being inserted into the pred
+    /// </summary>
     private void EnsureEntityFree(EntityUid pred, EntityUid prey){
          //check if the prey is already inside a container and remove them (for example bags)
         if (_containerSystem.TryGetContainingContainer(prey, out var currentContainer)){
