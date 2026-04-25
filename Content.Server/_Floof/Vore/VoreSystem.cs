@@ -17,6 +17,7 @@ using Content.Shared.Verbs;
 using Content.Shared.Polymorph;
 using Content.Shared.Destructible;
 using Robust.Shared.Configuration;
+using Content.Shared._DV.Carrying;
 namespace Content.Server._Floof.Vore;
 
 public sealed class VoreSystem : EntitySystem
@@ -26,6 +27,7 @@ public sealed class VoreSystem : EntitySystem
     [Dependency] private readonly SharedDoAfterSystem _doAfterSystem = default!;
     [Dependency] private readonly SharedPopupSystem _popupSystem = default!;
     [Dependency] private readonly IConfigurationManager _cfg = default!;
+    [Dependency] private readonly CarryingSystem _carrying = default!;
 
     public static readonly ProtoId<ConsentTogglePrototype> isPred = "PredVore";
     public static readonly ProtoId<ConsentTogglePrototype> isPrey = "PreyVore";
@@ -145,6 +147,7 @@ public sealed class VoreSystem : EntitySystem
         if (args.Target is not EntityUid prey)
             return;
 
+        var pred = uid;
         var container = _containerSystem.EnsureContainer<Container>(args.User, "vore_container");
         
         //as a way to prevent too many entities to be devoured
@@ -153,12 +156,37 @@ public sealed class VoreSystem : EntitySystem
             return;
         }
 
+        //makes sure prey will be dropped from bags and hands
+        EnsureEntityFree(pred, prey);
+
         //moves prey inside the person
         _containerSystem.Insert(prey, container);
         
         /*make the prey immune to space+temp+breathing to avoid consent concerns from outside influence
         gets removed after escaping or being forcefully ejected by pred*/
         ApplyStomachImmunities(prey);
+    }
+
+    private void EnsureEntityFree(EntityUid pred, EntityUid prey){
+         //check if the prey is already inside a container and remove them (for example bags)
+        if (_containerSystem.TryGetContainingContainer(prey, out var currentContainer)){
+            if (currentContainer.ID != "vore_container")
+                _containerSystem.Remove(prey, currentContainer);
+        }
+
+        //in case prey is being carried by pred, someone else or is holding the prey drop them
+        // 1. pred carrying prey
+        if (TryComp<CarryingComponent>(pred, out var predCarrying) &&
+            predCarrying.Carried == prey)
+            _carrying.DropCarried(pred, prey);
+        // 2. prey carrying pred
+        if (TryComp<CarryingComponent>(prey, out var preyCarrying) &&
+        preyCarrying.Carried == pred)
+            _carrying.DropCarried(prey, pred);
+        // 3. prey being carried by someone else
+        if (TryComp<BeingCarriedComponent>(prey, out var preyBeingCarried) &&
+        preyBeingCarried.Carrier != pred)
+            _carrying.DropCarried(preyBeingCarried.Carrier, prey);
     }
 
     /// <summary>
@@ -228,6 +256,12 @@ public sealed class VoreSystem : EntitySystem
     /// for consent purposes -> having others avoid stumbling on scenarios
     /// </summary>
     private void ApplyStomachImmunities(EntityUid prey){
+        /*double check making sure they are inside the container
+        should prevent possible exploitation of the system*/
+        if (!_containerSystem.TryGetContainingContainer(prey, out var container) ||
+        container.ID != "vore_container")
+           return;
+
         var tracker = EnsureComp<VoreImmunityTrackerComponent>(prey);
         if (!HasComp<PressureImmunityComponent>(prey))
         {
