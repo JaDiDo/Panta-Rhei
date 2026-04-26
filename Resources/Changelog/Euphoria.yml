@@ -2422,3 +2422,11 @@ Entries:
       message: Added vore, accessible only through consent toggles
   id: 302
   time: '2026-04-26T00:38:03.0000000+00:00'
+- author: ScarlettJFG
+  changes:
+    - type: Tweak
+      message: >-
+        Weld-bots buffed, they repair structures at 2x the strength as before.
+        May adjust in the future if needed.
+  id: 303
+  time: '2026-04-26T11:09:22.0000000+00:00'
