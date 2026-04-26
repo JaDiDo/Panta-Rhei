@@ -27,7 +27,7 @@ public sealed class VoreSystem : EntitySystem
     [Dependency] private readonly SharedDoAfterSystem _doAfterSystem = default!;
     [Dependency] private readonly SharedPopupSystem _popupSystem = default!;
     [Dependency] private readonly IConfigurationManager _cfg = default!;
-    [Dependency] private readonly CarryingSystem _carrying = default!;
+    [Dependency] private readonly CarryingSystem _carryingSystem = default!;
 
     public static readonly ProtoId<ConsentTogglePrototype> isPred = "PredVore";
     public static readonly ProtoId<ConsentTogglePrototype> isPrey = "PreyVore";
@@ -49,7 +49,8 @@ public sealed class VoreSystem : EntitySystem
     /// in order to avoid giving every mob it one by one
     /// </summary>
     private void OnMindStartup(EntityUid uid, MindContainerComponent comp, ComponentStartup args){
-        EnsureComp<VoreComponent>(uid);
+        if (HasComp<BodyComponent>(uid))
+            EnsureComp<VoreComponent>(uid);
     }
 
     /// <summary>
@@ -79,10 +80,6 @@ public sealed class VoreSystem : EntitySystem
 
         // only when reachable & interactable
         if (!args.CanInteract || !args.CanAccess)
-            return;
-
-        // to avoid feeding yourself to items
-        if (!HasComp<BodyComponent>(target))
             return;
         
         // to avoid empty mind NPCs
@@ -133,7 +130,7 @@ public sealed class VoreSystem : EntitySystem
         if (!_doAfterSystem.TryStartDoAfter(doAfterArgs))
             return;
         _popupSystem.PopupEntity($"You are devouring someone!", user, user);
-        _popupSystem.PopupEntity($"You are being devoured!", target, target);
+        _popupSystem.PopupEntity($"You are being devoured!", target, target, PopupType.LargeCaution);
     }
 
     /// <summary>
@@ -189,15 +186,15 @@ public sealed class VoreSystem : EntitySystem
         // 1. pred carrying prey
         if (TryComp<CarryingComponent>(pred, out var predCarrying) &&
             predCarrying.Carried == prey)
-            _carrying.DropCarried(pred, prey);
+            _carryingSystem.DropCarried(pred, prey);
         // 2. prey carrying pred
         if (TryComp<CarryingComponent>(prey, out var preyCarrying) &&
         preyCarrying.Carried == pred)
-            _carrying.DropCarried(prey, pred);
+            _carryingSystem.DropCarried(prey, pred);
         // 3. prey being carried by someone else
         if (TryComp<BeingCarriedComponent>(prey, out var preyBeingCarried) &&
         preyBeingCarried.Carrier != pred)
-            _carrying.DropCarried(preyBeingCarried.Carrier, prey);
+            _carryingSystem.DropCarried(preyBeingCarried.Carrier, prey);
     }
 
     /// <summary>
