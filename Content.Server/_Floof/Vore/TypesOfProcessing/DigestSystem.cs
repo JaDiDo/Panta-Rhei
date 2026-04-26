@@ -14,6 +14,12 @@ using Content.Shared.StationRecords;
 using Content.Server.Chat.Systems;
 using Content.Shared.Medical.SuitSensors;
 using Content.Shared.Medical.SuitSensor;
+using Content.Shared.Nutrition.Components;
+using Content.Shared.Nutrition.EntitySystems;
+using Content.Server.Nutrition.EntitySystems;
+//using Content.Server.Power.Components;
+//using Content.Server.Power.EntitySystems;
+//using Content.Shared.PowerCell.Components;
 namespace Content.Server._Floof.Vore;
 
 public sealed class DigestSystem : EntitySystem
@@ -27,6 +33,9 @@ public sealed class DigestSystem : EntitySystem
     [Dependency] private readonly SharedConsentSystem _consentSystem = default!;
     [Dependency] private readonly ChatSystem _chatSystem = default!;
     [Dependency] private readonly SharedSuitSensorSystem _suitSensorSystem = default!;
+    [Dependency] private readonly HungerSystem _hunger = default!;
+    //[Dependency] private readonly BatterySystem _battery = default!;
+
 
     public override void Initialize()
     {
@@ -157,7 +166,6 @@ public sealed class DigestSystem : EntitySystem
     /// </summary>
     private void ReopenJob(EntityUid prey)
     {
-        // TODO removed only their in case of items
         if (!_mind.TryGetMind(prey, out var mindId, out var mindComp))
             return;
         var userId = mindComp.UserId;
@@ -234,59 +242,99 @@ public sealed class DigestSystem : EntitySystem
     /// </summary>
     public override void Update(float frameTime){
         var query = EntityQueryEnumerator<DigestComponent>();
+        // goes through all predators with a digest component
         while (query.MoveNext(out var pred, out var comp)){
             var remove = new List<EntityUid>();
             foreach (var prey in comp.Health.Keys){
-
-
+                //in case prey no longer exists
                 if (!EntityManager.EntityExists(prey)){
                     remove.Add(prey);
                     continue;
                 }
 
-    // digestion 
-    //Console.WriteLine($"[Digest] {ToPrettyString(prey)}: {comp.Health[prey]}/{comp.Max}");
-    if (comp.ActiveDigesting.Contains(prey))
-    {
-        if (!_containerSystem.TryGetContainingContainer(prey, out var container) ||
-            container.ID != "vore_container")
-        {
-            remove.Add(prey);
-            continue;
-        }
+                // digestion path 
+                if (comp.ActiveDigesting.Contains(prey)){
+                    
+                    // in case prey is removed from container stop digestion and go through regeneration path
+                    if (!_containerSystem.TryGetContainingContainer(prey, out var container) ||
+                    container.ID != "vore_container"){
+                        comp.ActiveDigesting.Remove(prey);
+                        comp.Timer[prey] = 0f;
+                        continue;
+                    }
 
-        comp.Timer[prey] += frameTime;
+                    //in case consent is removed during digestion stop digestion and go through regeneration path
+                    if (!_consentSystem.HasConsent(prey, "Digestable")){
+                        comp.ActiveDigesting.Remove(prey);
+                        comp.Timer[prey] = 0f;
+                        continue;
+                    }
 
-        if (comp.Timer[prey] < 1f)
-            continue;
+                    // timer for 1 second intervals
+                    comp.Timer[prey] += frameTime;
+                    if (comp.Timer[prey] < 1f)
+                        continue;
+                    comp.Timer[prey] -= 1f;
 
-        comp.Timer[prey] -= 1f;
-        comp.Health[prey]--;
+                    // digestion process, reduces health of prey and increases hunger of predator every second
+                    comp.Health[prey]--;
+                    if (TryComp<HungerComponent>(container.Owner, out var hunger)){
+                        /* for testing purposes
+                        Console.WriteLine($"[Digest] {ToPrettyString(prey)}: {comp.Health[prey]}/{comp.Max}");
+                        Console.WriteLine($"[Digest] Increasing hunger for {ToPrettyString(container.Owner)}. Current hunger: {_hunger.GetHunger(hunger)}");
+                        */
+                        _hunger.ModifyHunger(container.Owner, 1, hunger);
+                    }
+                    //TODOif (TryComp<BatteryComponent>(container.Owner, out var internalbattery)){
+                    // _battery.SetCharge(container.Owner, internalbattery.CurrentCharge + 2, internalbattery);
+                    //}
 
-        if (comp.Health[prey] <= 0)
-        {
-            FinishDigest(prey);
-            remove.Add(prey);
-        }
-        continue;
-    }
+                    //once health reaches 0 finish digestion and remove prey from tracking
+                    if (comp.Health[prey] <= 0){
+                        FinishDigest(prey);
+                        remove.Add(prey);
+                    }
+                    continue;
+                }
+                
+                // regeneration path
+                else{
 
-    // regeneration
-    comp.Timer[prey] += frameTime;
-    if (comp.Timer[prey] < 1f)
-        continue;
-    comp.Timer[prey] -= 1f;
-    if (comp.Health[prey] < comp.Max)
-    {
-        comp.Health[prey]++;
-        continue;
-    }
-            }
+                    // timer for 1 second intervals
+                    comp.Timer[prey] += frameTime;
+                    if (comp.Timer[prey] < 1f)
+                        continue;
+                    comp.Timer[prey] -= 1f;
 
-            foreach (var p in remove){
-                comp.Health.Remove(p);
-                comp.Timer.Remove(p);
-                comp.ActiveDigesting.Remove(p); // safety cleanup
+                    //if the prey is not being digested will regenerate health every second till it reaches max health or the hunger is too low
+                    if (TryComp<HungerComponent>(prey, out var preyHunger)){
+                        if (_hunger.GetHunger(preyHunger) > 50 && comp.Health[prey] < comp.Max){
+                            /* forst testing purposes
+                            Console.WriteLine($"[Digest] {ToPrettyString(prey)}: {comp.Health[prey]}/{comp.Max}");
+                            Console.WriteLine($"[Digest] {ToPrettyString(prey)} is regenerating. Hunger: {_hunger.GetHunger(preyHunger)}");
+                            */
+                            comp.Health[prey] += 0.1f;
+                            _hunger.ModifyHunger(prey, -1f, preyHunger);
+                        }
+                    }
+
+                    //TODO --- BATTERY-BASED HEALING ---
+                    /*if (TryComp<BatteryComponent>(prey, out var preyBattery))
+                    {
+                        if (preyBattery.CurrentCharge > 50 && comp.Health[prey] < comp.Max)
+                        {
+                            comp.Health[prey] += 0.1f;
+                            //_battery.SetCharge(prey, preyBattery.CurrentCharge - 1);
+                        }
+                    }*/
+                }
+
+                // safety check to remove any prey that might have been left in the tracking after digestion or deletion
+                foreach (var p in remove){
+                    comp.Health.Remove(p);
+                    comp.Timer.Remove(p);
+                    comp.ActiveDigesting.Remove(p); 
+                }
             }
         }
     }
