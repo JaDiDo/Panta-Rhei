@@ -140,6 +140,10 @@ public sealed class DigestSystem : EntitySystem
             comp.ActiveDigesting.Remove(prey);
             comp.Health.Remove(prey);
             comp.Timer.Remove(prey);
+            comp.DigestPopupStage.Remove(prey);
+            if (TryComp<VoreComponent>(prey, out var preyComp))
+                preyComp.IntentionalRelease = true;
+            _popupSystem.PopupEntity($"You feel lighter as you feel your belly shrinks down in size", container.Owner, container.Owner);
         }   
         QueueDel(prey);
     }
@@ -246,6 +250,13 @@ public sealed class DigestSystem : EntitySystem
         while (query.MoveNext(out var pred, out var comp)){
             var remove = new List<EntityUid>();
             foreach (var prey in comp.Health.Keys){
+
+                // timer for 1 second intervals
+                    comp.Timer[prey] += frameTime;
+                    if (comp.Timer[prey] < 1f)
+                        continue;
+                    comp.Timer[prey] -= 1f;
+
                 //in case prey no longer exists
                 if (!EntityManager.EntityExists(prey)){
                     remove.Add(prey);
@@ -256,28 +267,19 @@ public sealed class DigestSystem : EntitySystem
                 if (comp.ActiveDigesting.Contains(prey)){
                     
                     // in case prey is removed from container stop digestion and go through regeneration path
+                    // or in case consent is removed during digestion
                     if (!_containerSystem.TryGetContainingContainer(prey, out var container) ||
-                    container.ID != "vore_container"){
+                    container.ID != "vore_container" ||
+                    !_consentSystem.HasConsent(prey, "Digestable")){
                         comp.ActiveDigesting.Remove(prey);
                         comp.Timer[prey] = 0f;
                         continue;
                     }
-
-                    //in case consent is removed during digestion stop digestion and go through regeneration path
-                    if (!_consentSystem.HasConsent(prey, "Digestable")){
-                        comp.ActiveDigesting.Remove(prey);
-                        comp.Timer[prey] = 0f;
-                        continue;
-                    }
-
-                    // timer for 1 second intervals
-                    comp.Timer[prey] += frameTime;
-                    if (comp.Timer[prey] < 1f)
-                        continue;
-                    comp.Timer[prey] -= 1f;
 
                     // digestion process, reduces health of prey and increases hunger of predator every second
-                    comp.Health[prey]--;
+                    //also show a popup to the prey as a way of feedback
+                    comp.Health[prey] -= 0.5f;
+                    ShowDigestPopup(pred, prey, comp);
                     if (TryComp<HungerComponent>(container.Owner, out var hunger)){
                         /* for testing purposes
                         Console.WriteLine($"[Digest] {ToPrettyString(prey)}: {comp.Health[prey]}/{comp.Max}");
@@ -298,23 +300,19 @@ public sealed class DigestSystem : EntitySystem
                 }
                 
                 // regeneration path
+                // fun fact principle is kinda like trophic level in ecology!
                 else{
-
-                    // timer for 1 second intervals
-                    comp.Timer[prey] += frameTime;
-                    if (comp.Timer[prey] < 1f)
-                        continue;
-                    comp.Timer[prey] -= 1f;
 
                     //if the prey is not being digested will regenerate health every second till it reaches max health or the hunger is too low
                     if (TryComp<HungerComponent>(prey, out var preyHunger)){
                         if (_hunger.GetHunger(preyHunger) > 50 && comp.Health[prey] < comp.Max){
-                            /* forst testing purposes
+                            /* for testing purposes
                             Console.WriteLine($"[Digest] {ToPrettyString(prey)}: {comp.Health[prey]}/{comp.Max}");
                             Console.WriteLine($"[Digest] {ToPrettyString(prey)} is regenerating. Hunger: {_hunger.GetHunger(preyHunger)}");
                             */
                             comp.Health[prey] += 0.1f;
                             _hunger.ModifyHunger(prey, -1f, preyHunger);
+                            continue;
                         }
                     }
 
@@ -334,8 +332,49 @@ public sealed class DigestSystem : EntitySystem
                     comp.Health.Remove(p);
                     comp.Timer.Remove(p);
                     comp.ActiveDigesting.Remove(p); 
+                    comp.DigestPopupStage.Remove(prey);
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// shows a popup to the prey based on the state of digestion as a form of feedback
+    /// </summary>
+    private void ShowDigestPopup(EntityUid pred, EntityUid prey, DigestComponent comp){
+        var health = comp.Health[prey];
+        var max = comp.Max;
+        var percent = health / max;
+
+        int stage = 0;
+
+        if (percent <= 0.10f)
+            stage = 4;
+        else if (percent <= 0.25f)
+            stage = 3;
+        else if (percent <= 0.50f)
+            stage = 2;
+        else if (percent <= 0.75f)
+            stage = 1;
+
+        if (stage == 0)
+            return;
+
+        // in case the stage has already been shown for the prey dont show it again
+        if (comp.DigestPopupStage.TryGetValue(prey, out var lastStage) && lastStage >= stage)
+            return;
+        // Mark this stage as shown
+        comp.DigestPopupStage[prey] = stage;
+
+        string? message = stage switch{
+            1 => "You feel your body softening inside the stomach.",
+            2 => "It feels harder to stay conscious as your body melts.",
+            3 => "You body begins to lose its shape.",
+            4 => "You can barely remain conscious as your body is almost fully gone",
+            _ => null
+        };
+
+        if (message != null)
+            _popupSystem.PopupEntity(message, prey, prey);
     }
 }
