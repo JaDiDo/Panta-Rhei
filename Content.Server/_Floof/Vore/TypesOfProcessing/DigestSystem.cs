@@ -195,8 +195,10 @@ public sealed class DigestSystem : EntitySystem
                 comp.Timer[prey] -= 1f;
 
                 //in case prey no longer exists
-                if (!EntityManager.EntityExists(prey))
+                if (!EntityManager.EntityExists(prey)){
+                    fullydigest.Add(prey);
                     continue;
+                }
 
                 // digestion path 
                 if (comp.ActiveDigesting.Contains(prey)){        
@@ -272,16 +274,15 @@ public sealed class DigestSystem : EntitySystem
                         }
                     }
                 }
-                
-                // safety check to remove any prey that might have been left in the tracking after digestion or deletion
-                foreach (var p in fullydigest){
-                    comp.Health.Remove(p);
-                    comp.Timer.Remove(p);
-                    comp.ActiveDigesting.Remove(p); 
-                    comp.DigestPopupStage.Remove(p);
-                    FinishDigest(p);
-                }
-            }                    
+            }
+            // safety check to remove any prey that might have been left in the tracking after digestion or deletion
+            foreach (var p in fullydigest){
+                comp.Health.Remove(p);
+                comp.Timer.Remove(p);
+                comp.ActiveDigesting.Remove(p); 
+                comp.DigestPopupStage.Remove(p);
+                FinishDigest(p);
+            }                
         }
     }
 
