@@ -18,6 +18,7 @@ using Content.Server.Bed.Cryostorage;
 using Content.Shared.Bed.Cryostorage;
 using Robust.Shared.Configuration;
 using Content.Shared.Containers.ItemSlots;
+using System.Linq;
 namespace Content.Server._Floof.Vore;
 
 public sealed class DigestSystem : EntitySystem
@@ -31,7 +32,7 @@ public sealed class DigestSystem : EntitySystem
     [Dependency] private readonly BatterySystem _battery = default!;
     [Dependency] private readonly CryostorageSystem _cryo = default!;
     [Dependency] private readonly IConfigurationManager _cfg = default!;
-[Dependency] private readonly ItemSlotsSystem _itemSlots = default!;
+    [Dependency] private readonly ItemSlotsSystem _itemSlots = default!;
 
     public override void Initialize(){
         SubscribeLocalEvent<DigestComponent, GetVerbsEvent<Verb>>(OnGetVerbs);
@@ -41,8 +42,7 @@ public sealed class DigestSystem : EntitySystem
     /// creates a verb only showing up if the pred has any content in their stomach
     /// and only shows if at least one prey has consented to being digested
     /// </summary>
-    private void OnGetVerbs(EntityUid uid, DigestComponent comp, GetVerbsEvent<Verb> args)
-    {
+    private void OnGetVerbs(EntityUid uid, DigestComponent comp, GetVerbsEvent<Verb> args){
         var user = args.User;
 
         // using command to turn on/off verb components
@@ -74,7 +74,7 @@ public sealed class DigestSystem : EntitySystem
                 args.Verbs.Add(new Verb
                 {
                     Text = $"Digest {preyName}",
-                    Category = VerbCategory.Interaction,
+                    Category = VerbCategory.Vore,
                     Act = () => TryDigest(prey)
                 });
             }
@@ -84,7 +84,7 @@ public sealed class DigestSystem : EntitySystem
                 args.Verbs.Add(new Verb
                 {
                     Text = $"Stop digesting {preyName}",
-                    Category = VerbCategory.Interaction,
+                    Category = VerbCategory.Vore,
                     Act = () => StopDigest(user, prey)
                 });
             }
@@ -177,8 +177,9 @@ public sealed class DigestSystem : EntitySystem
         var query = EntityQueryEnumerator<DigestComponent>();
         
         // goes through all predators with a digest component
-        while (query.MoveNext(out var pred, out var comp))
+        while (query.MoveNext(out var pred, out var comp)){
             preds.Add((pred, comp));
+        }
         
         // goes through all the prey of each pred and applies digestion/healing effects
         foreach (var (pred, comp) in preds){
@@ -186,7 +187,7 @@ public sealed class DigestSystem : EntitySystem
             //in case a prey reaches 0 health
             var fullydigest = new List<EntityUid>();
 
-            foreach (var prey in comp.Health.Keys){
+            foreach (var prey in comp.Health.Keys.ToList()){
                 // timer for 1 second intervals
                 comp.Timer[prey] += frameTime;
                 if (comp.Timer[prey] < 1f)
@@ -195,7 +196,7 @@ public sealed class DigestSystem : EntitySystem
 
                 //in case prey no longer exists
                 if (!EntityManager.EntityExists(prey))
-                    break;
+                    continue;
 
                 // digestion path 
                 if (comp.ActiveDigesting.Contains(prey)){        
@@ -251,28 +252,25 @@ public sealed class DigestSystem : EntitySystem
                             continue;
                         }
                     }
-else if (TryComp<PowerCellSlotComponent>(prey, out var batterySlot)
-    && _itemSlots.TryGetSlot(prey, batterySlot.CellSlotId, out var itemSlot)
-    && itemSlot.Item is { } cellUid
-    && TryComp<BatteryComponent>(cellUid, out var batteryComp))
-{
-    var preyCharge = _battery.GetCharge(cellUid);
+                    else if (TryComp<PowerCellSlotComponent>(prey, out var batterySlot)
+                        && _itemSlots.TryGetSlot(prey, batterySlot.CellSlotId, out var itemSlot)
+                        && itemSlot.Item is { } cellUid
+                        && TryComp<BatteryComponent>(cellUid, out var batteryComp)){
+                        var preyCharge = _battery.GetCharge(cellUid);
 
-    Console.WriteLine($"[DIGEST] Prey cell charge BEFORE: {preyCharge}");
+                        Console.WriteLine($"[DIGEST] Prey cell charge BEFORE: {preyCharge}");
 
-    // Heal prey if battery is above 50%
-    if (preyCharge > batteryComp.MaxCharge * 0.5f && comp.Health[prey] < comp.Max)
-    {
-        comp.Health[prey] += 0.1f;
+                        // Heal prey if battery is above 50%
+                        if (preyCharge > batteryComp.MaxCharge * 0.5f && comp.Health[prey] < comp.Max)
+                        {
+                            comp.Health[prey] += 0.1f;
 
-        // Drain 1 unit of charge from prey
-         _battery.SetCharge((cellUid, batteryComp), preyCharge - 2f);
+                            // Drain 1 unit of charge from prey
+                            _battery.SetCharge((cellUid, batteryComp), preyCharge - 2f);
 
-        Console.WriteLine($"[DIGEST] Prey cell charge AFTER: {_battery.GetCharge(cellUid)}");
-    }
-}
-
-
+                            Console.WriteLine($"[DIGEST] Prey cell charge AFTER: {_battery.GetCharge(cellUid)}");
+                        }
+                    }
                 }
                 
                 // safety check to remove any prey that might have been left in the tracking after digestion or deletion

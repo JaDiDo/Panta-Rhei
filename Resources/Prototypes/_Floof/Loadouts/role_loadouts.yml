@@ -39,11 +39,11 @@
   - MedicalMask
   - SeniorPhysicianJumpsuits #floofstation
   - MedicalDoctorBelts #floofstation
+  - FloofSeniorPhysicianPDAs # Floofstation Alternative pdas
   - MedicalGloves
   - MedicalBackpack
   - MedicalDoctorOuterClothing
   - MedicalShoes
-  - MedicalDoctorPDA
   - MedicalEyewear
   - SurvivalMedical
   - Smokeables
@@ -102,7 +102,7 @@
   - PassengerGloves #floofstation
   - CargoTechnicianBackpack
   - CargoTechnicianOuterClothing
-  - CargoPDADelta # DeltaV
+  - InventorySpecialistPDA # Euphoria
   - CargoTechnicianShoes
   - Glasses
   - Survival
