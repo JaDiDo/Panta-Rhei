@@ -141,7 +141,6 @@ public sealed class DigestSystem : EntitySystem
             _popupSystem.PopupEntity("You feel satiated as you feel your belly shrinks down in size", container.Owner, container.Owner);
         
         SendToCryo(prey);
-        QueueDel(prey);
     }
 
     /// <summary>
@@ -157,8 +156,10 @@ public sealed class DigestSystem : EntitySystem
         }
 
         //in rare case there is no cryostorage machine just return and delete the prey
-        if (cryoUnit == null)
+        if (cryoUnit == null){
+            QueueDel(prey);
             return;
+        }
 
         // put the prey in cryostorage and apply the required effects
         var contained = EnsureComp<CryostorageContainedComponent>(prey);
@@ -260,17 +261,10 @@ public sealed class DigestSystem : EntitySystem
                         && TryComp<BatteryComponent>(cellUid, out var batteryComp)){
                         var preyCharge = _battery.GetCharge(cellUid);
 
-                        Console.WriteLine($"[DIGEST] Prey cell charge BEFORE: {preyCharge}");
-
-                        // Heal prey if battery is above 50%
-                        if (preyCharge > batteryComp.MaxCharge * 0.5f && comp.Health[prey] < comp.Max)
-                        {
+                        if (preyCharge > batteryComp.MaxCharge * 0.5f && comp.Health[prey] < comp.Max){
                             comp.Health[prey] += 0.1f;
-
-                            // Drain 1 unit of charge from prey
                             _battery.SetCharge((cellUid, batteryComp), preyCharge - 2f);
-
-                            Console.WriteLine($"[DIGEST] Prey cell charge AFTER: {_battery.GetCharge(cellUid)}");
+                            continue;
                         }
                     }
                 }
