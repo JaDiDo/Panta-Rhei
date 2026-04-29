@@ -2446,3 +2446,11 @@ Entries:
       message: FIxed the assistant icon being a P instead of an A.
   id: 305
   time: '2026-04-27T08:20:35.0000000+00:00'
+- author: Dunrab
+  changes:
+    - type: Fix
+      message: >-
+        Removed cardboxbase from loadouts, it shouldn't have been there to begin
+        with.
+  id: 306
+  time: '2026-04-29T09:59:51.0000000+00:00'
