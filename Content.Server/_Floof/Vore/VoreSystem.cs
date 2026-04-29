@@ -10,6 +10,7 @@ using Content.Shared.FloofStation;
 using Content.Shared._Floof.Vore;
 using Content.Shared._Shitmed.Body.Components;
 using Content.Shared._DV.CosmicCult.Components;
+using Content.Server.Radiation.Components;
 using Content.Server.Atmos.Components;
 using Content.Shared.Body.Events;
 using Content.Shared._Common.Consent;
@@ -114,7 +115,7 @@ public sealed class VoreSystem : EntitySystem
                 args.Verbs.Add(new Verb
                 {
                     Text = "Remove Prey",
-                    Act = () => OnTryReleasePrey(target)
+                    Act = () =>TryReleasePrey(target)
                 });
             }
             return;
@@ -128,12 +129,12 @@ public sealed class VoreSystem : EntitySystem
         if (!TryComp<MindContainerComponent>(target, out var mindContainer) || mindContainer.Mind == null)
             return;
 
-        /* if the user is a pred inside a pred allows them to have prey allow interactions
+        /* if the user is a pred inside a pred allows them to have interactions with prey inside
         only if they are in the same container however */ 
         var userInContainer = _containerSystem.TryGetContainingContainer(user, out var userContainer) &&
-                 userContainer.ID == "vore_container";
+            userContainer.ID == "vore_container";
         var targetInContainer = _containerSystem.TryGetContainingContainer(target, out var targetContainer) &&
-                   targetContainer.ID == "vore_container";
+            targetContainer.ID == "vore_container";
         if (userInContainer){
             if (!targetInContainer || userContainer != targetContainer)
                 return;
@@ -145,7 +146,7 @@ public sealed class VoreSystem : EntitySystem
             args.Verbs.Add(new Verb
             {
                 Text = "Devour",
-                Act = () => OnTryVore(user, target)
+                Act = () => TryVore(user, target)
             });
         }
         // insert self (prey → pred)
@@ -154,7 +155,7 @@ public sealed class VoreSystem : EntitySystem
             args.Verbs.Add(new Verb
             {
                 Text = "Insert Self",
-                Act = () => OnTryVore(target, user)
+                Act = () => TryVore(target, user)
             });
         }
     }
@@ -163,7 +164,7 @@ public sealed class VoreSystem : EntitySystem
     /// used for after selecting to insert into someone or devour
     /// will create a slow popup and warning to give both sides time to react on it
     /// </summary>
-    private void OnTryVore(EntityUid user, EntityUid target){
+    private void TryVore(EntityUid user, EntityUid target){
 
         //slow loading bar to avoid instant vore with warning pop ups
         var doAfterArgs = new DoAfterArgs(EntityManager, user, 5f, new OnVoreDoAfter(), user, target: target, used: user)
@@ -245,7 +246,7 @@ public sealed class VoreSystem : EntitySystem
     /// for when the pred removes the prey from their container
     /// will remove the buffs such as space immunity for the target
     /// </summary>
-    private void OnTryReleasePrey(EntityUid pred){
+    private void TryReleasePrey(EntityUid pred){
         var container = _containerSystem.EnsureContainer<Container>(pred, "vore_container");
         var preyList = new List<EntityUid>(container.ContainedEntities);
         //remove everything from people to items
@@ -286,21 +287,21 @@ public sealed class VoreSystem : EntitySystem
     /// in case the user gets gibbed need content emptied including prey+items
     /// </summary>
     private void OnGibbedRemoveContent(EntityUid uid, VoreComponent comp, BeingGibbedEvent args){
-        OnTryReleasePrey(uid);
+        TryReleasePrey(uid);
     }
 
     /// <summary>
     /// in case the user gets destroyed through for example singulo or gibbing
     /// </summary>
     private void OnDestroyedRemoveContent(EntityUid uid, VoreComponent comp, DestructionEventArgs args){
-        OnTryReleasePrey(uid);
+        TryReleasePrey(uid);
     }
 
     /// <summary>
     /// in case of polymorp scenarios such as kitsune release all the content
     /// </summary>
     private void OnPolymorphedTransferContent(EntityUid uid, VoreComponent comp, PolymorphedEvent args){   
-        OnTryReleasePrey(uid);
+        TryReleasePrey(uid);
     }
     
     /// <summary>
@@ -332,6 +333,12 @@ public sealed class VoreSystem : EntitySystem
             EnsureComp<TemperatureImmunityComponent>(prey);
             tracker.AddedTemperature = true;
         }
+        //doesnt fully protect from radiation (given its potassium iodine protection) but will give prey more time to react and escape before radiation starts doing damage (90 percent reduction of radiation damage)
+        if (!HasComp<RadiationProtectionComponent>(prey))
+        {
+            EnsureComp<RadiationProtectionComponent>(prey);
+            tracker.AddedRadiation = true;
+        }
     }
 
     /// <summary>
@@ -354,6 +361,8 @@ public sealed class VoreSystem : EntitySystem
                 RemComp<BreathingImmunityComponent>(prey);
             if (tracker.AddedTemperature)
                 RemComp<TemperatureImmunityComponent>(prey);
+            if (tracker.AddedRadiation)
+                RemComp<RadiationProtectionComponent>(prey);
             RemComp<VoreImmunityTrackerComponent>(prey);
         });
     }
