@@ -2446,3 +2446,37 @@ Entries:
       message: FIxed the assistant icon being a P instead of an A.
   id: 305
   time: '2026-04-27T08:20:35.0000000+00:00'
+- author: Dunrab
+  changes:
+    - type: Fix
+      message: >-
+        Removed cardboxbase from loadouts, it shouldn't have been there to begin
+        with.
+  id: 306
+  time: '2026-04-29T09:59:51.0000000+00:00'
+- author: Raikyr0
+  changes:
+    - type: Add
+      message: Added honey glazed ham can now be swung like a club
+  id: 307
+  time: '2026-04-29T10:11:09.0000000+00:00'
+- author: kivdon
+  changes:
+    - type: Tweak
+      message: >-
+        Changed Super Synth time requirement in Musician from 50 hours to 15
+        hours.
+  id: 308
+  time: '2026-04-29T10:11:59.0000000+00:00'
+- author: Dunrab
+  changes:
+    - type: Fix
+      message: Paramedics will no longer spawn with duplicate PDAs.
+  id: 309
+  time: '2026-04-29T10:13:28.0000000+00:00'
+- author: JaDiDo
+  changes:
+    - type: Tweak
+      message: adjusted the voresystem
+  id: 310
+  time: '2026-04-29T10:16:12.0000000+00:00'
