@@ -49,7 +49,7 @@ public sealed class DigestSystem : EntitySystem
         if (!_cfg.GetCVar(VoreCVars.DigestionEnabled))
             return;
 
-        // only the predator can see the verb
+        // only the predator themself can see the verb when inspecting themself
         if (user != uid)
             return;
         
@@ -213,7 +213,7 @@ public sealed class DigestSystem : EntitySystem
                         continue;
                     }
 
-                    /* digestion process, reduces health of prey and increases hunger of predator every second
+                    /* digestion process, reduces health of prey and increases hunger/charge of predator every second
                     also show a popup to the prey as a way of feedback */
                     comp.Health[prey] -= 0.5f;
                     ShowDigestPopup(pred, prey, comp);
@@ -240,7 +240,8 @@ public sealed class DigestSystem : EntitySystem
                 // fun fact principle is like trophic level in ecology!
                 else{
 
-                    //if the prey is not being digested will regenerate health every second till it reaches max health or the hunger is too low
+                    /*if the prey is not being digested will regenerate health every second till it reaches max health or the hunger/battery is too low
+                    currently set at 50 (starving threshold) for hunger and 50% for battery */
                     if (TryComp<HungerComponent>(prey, out var preyHunger)){
                         if (_hunger.GetHunger(preyHunger) > 50 && comp.Health[prey] < comp.Max){
                             comp.Health[prey] += 0.1f;

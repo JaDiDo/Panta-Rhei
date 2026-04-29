@@ -157,7 +157,6 @@ public sealed class VoreSystem : EntitySystem
         foreach (var e in container.ContainedEntities){
             if (HasComp<BodyComponent>(e))
                 count++;
-            Console.WriteLine($"Contained Entity: {e}, Count: {count}");
         }
         //as a way to prevent too many entities to be devoured
         if (count >= args.MaxPrey){
