@@ -52,7 +52,7 @@ public sealed class VoreSystem : EntitySystem
     /// in order to avoid giving every mob it one by one, timer needed to get the recent change 
     /// </summary>
     private void OnConsentUpdated(EntityUid uid, ConsentComponent comp, EntityConsentToggleUpdatedEvent args){
-        // only for prey and pred consent changes
+        // only if the updated toggle is prey or pred
         if (args.ConsentToggleProtoId != isPred && args.ConsentToggleProtoId != isPrey)
             return;
         Timer.Spawn(0, () => ApplyVoreConsent(uid));
@@ -71,12 +71,12 @@ public sealed class VoreSystem : EntitySystem
     private void ApplyVoreConsent(EntityUid uid){
         var hasPred = _consentSystem.HasConsent(uid, isPred);
         var hasPrey = _consentSystem.HasConsent(uid, isPrey);
-        //TODO for digest ...
+        //TODO var for digest
 
-        Console.WriteLine($"Has Pred Consent: {hasPred}, Has Prey Consent: {hasPrey}");
+        //Console.WriteLine($"IsPred{hasPrey}: IsPrey: {hasPred}");
 
         /* in case prey is inside a container immediately release them when they turn off prey consent
-        works as an emergency button for the prey*/
+        works as an emergency leave for the prey*/
         if (!hasPrey &&
         _containerSystem.TryGetContainingContainer(uid, out var container) &&
         container.ID == "vore_container")
@@ -91,7 +91,8 @@ public sealed class VoreSystem : EntitySystem
         else{
             RemComp<VoreComponent>(uid);
         }
-        //TODO for digest ...
+        
+        //TODO component for digest
     }
 
     /// <summary>
@@ -127,13 +128,16 @@ public sealed class VoreSystem : EntitySystem
         if (!TryComp<MindContainerComponent>(target, out var mindContainer) || mindContainer.Mind == null)
             return;
 
-        //no verbs for swallowed people
-        /**TODO
-        making multivore possible. As of now its just a prevention method to avoid giving 
-        Components such as space immunity to the pred
-        */
-        if (_containerSystem.TryGetContainingContainer(user, out var userContainer) && userContainer.ID == "vore_container")
-            return;
+        /* if the user is a pred inside a pred allows them to have prey allow interactions
+        only if they are in the same container however */ 
+        var userInContainer = _containerSystem.TryGetContainingContainer(user, out var userContainer) &&
+                 userContainer.ID == "vore_container";
+        var targetInContainer = _containerSystem.TryGetContainingContainer(target, out var targetContainer) &&
+                   targetContainer.ID == "vore_container";
+        if (userInContainer){
+            if (!targetInContainer || userContainer != targetContainer)
+                return;
+        }
 
         // devour (pred → prey)
         if (_consentSystem.HasConsent(user, isPred)
@@ -144,7 +148,6 @@ public sealed class VoreSystem : EntitySystem
                 Act = () => OnTryVore(user, target)
             });
         }
-
         // insert self (prey → pred)
         if (_consentSystem.HasConsent(user, isPrey)
             && _consentSystem.HasConsent(target, isPred)){
@@ -336,14 +339,22 @@ public sealed class VoreSystem : EntitySystem
     /// to avoid intentional and accidental exploitation
     /// </summary>
     private void RemoveStomachImmunities(EntityUid prey){
-        if (!TryComp<VoreImmunityTrackerComponent>(prey, out var tracker))
-            return;
-        if (tracker.AddedPressure)
-            RemComp<PressureImmunityComponent>(prey);
-        if (tracker.AddedBreathing)
-            RemComp<BreathingImmunityComponent>(prey);
-        if (tracker.AddedTemperature)
-            RemComp<TemperatureImmunityComponent>(prey);
-        RemComp<VoreImmunityTrackerComponent>(prey);
+        // necessary to delay the removal incase of multiple containers
+        Timer.Spawn(0, () =>
+        {
+            // in case the prey still remains inside another vore container (for example multivore) do not remove the immunities
+            if (_containerSystem.TryGetContainingContainer(prey, out var container) &&
+            container.ID == "vore_container")
+                return;
+            if (!TryComp<VoreImmunityTrackerComponent>(prey, out var tracker))
+                return;
+            if (tracker.AddedPressure)
+                RemComp<PressureImmunityComponent>(prey);
+            if (tracker.AddedBreathing)
+                RemComp<BreathingImmunityComponent>(prey);
+            if (tracker.AddedTemperature)
+                RemComp<TemperatureImmunityComponent>(prey);
+            RemComp<VoreImmunityTrackerComponent>(prey);
+        });
     }
 }
