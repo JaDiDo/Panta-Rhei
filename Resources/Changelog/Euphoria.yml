@@ -2474,3 +2474,9 @@ Entries:
       message: Paramedics will no longer spawn with duplicate PDAs.
   id: 309
   time: '2026-04-29T10:13:28.0000000+00:00'
+- author: JaDiDo
+  changes:
+    - type: Tweak
+      message: adjusted the voresystem
+  id: 310
+  time: '2026-04-29T10:16:12.0000000+00:00'
