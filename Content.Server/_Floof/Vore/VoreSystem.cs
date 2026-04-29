@@ -18,6 +18,7 @@ using Content.Shared.Polymorph;
 using Content.Shared.Destructible;
 using Robust.Shared.Configuration;
 using Content.Shared._DV.Carrying;
+using Robust.Shared.Timing;
 namespace Content.Server._Floof.Vore;
 
 public sealed class VoreSystem : EntitySystem
@@ -28,13 +29,15 @@ public sealed class VoreSystem : EntitySystem
     [Dependency] private readonly SharedPopupSystem _popupSystem = default!;
     [Dependency] private readonly IConfigurationManager _cfg = default!;
     [Dependency] private readonly CarryingSystem _carryingSystem = default!;
+    [Dependency] private readonly ITimerManager _timer = default!;
 
     public static readonly ProtoId<ConsentTogglePrototype> isPred = "PredVore";
     public static readonly ProtoId<ConsentTogglePrototype> isPrey = "PreyVore";
 
     public override void Initialize()
     {
-        SubscribeLocalEvent<MindContainerComponent, ComponentStartup>(OnMindStartup);
+        SubscribeLocalEvent<ConsentComponent, ComponentStartup>(OnConsentStartup);
+        SubscribeLocalEvent<ConsentComponent, EntityConsentToggleUpdatedEvent>(OnConsentUpdated);
 
         SubscribeLocalEvent<VoreComponent, GetVerbsEvent<Verb>>(OnGetVerbs);
         SubscribeLocalEvent<VoreComponent, OnVoreDoAfter>(OnVoreDoAfter);
@@ -45,12 +48,50 @@ public sealed class VoreSystem : EntitySystem
     }
 
     /// <summary>
-    /// gives the vorecomponent to every entity that has the mindcomponent
-    /// in order to avoid giving every mob it one by one
+    /// gives the mob vore component when they updated their consent to be pred or prey
+    /// in order to avoid giving every mob it one by one, timer needed to get the recent change 
     /// </summary>
-    private void OnMindStartup(EntityUid uid, MindContainerComponent comp, ComponentStartup args){
-        if (HasComp<BodyComponent>(uid))
-            EnsureComp<VoreComponent>(uid);
+    private void OnConsentUpdated(EntityUid uid, ConsentComponent comp, EntityConsentToggleUpdatedEvent args){
+        // only for prey and pred consent changes
+        if (args.ConsentToggleProtoId != isPred && args.ConsentToggleProtoId != isPrey)
+            return;
+        Timer.Spawn(0, () => ApplyVoreConsent(uid));
+    }
+
+    /// <summary>
+    /// same principle as OnConsentUpdated but without the need for checking consent change
+    /// </summary>
+    private void OnConsentStartup(EntityUid uid, ConsentComponent comp, ComponentStartup args){
+        Timer.Spawn(0, () => ApplyVoreConsent(uid));
+    }
+
+    /// <summary>
+    /// gives a mob the vore component if they have selected either pred or prey consent and removes it if they have neither
+    /// </summary>
+    private void ApplyVoreConsent(EntityUid uid){
+        var hasPred = _consentSystem.HasConsent(uid, isPred);
+        var hasPrey = _consentSystem.HasConsent(uid, isPrey);
+        //TODO for digest ...
+
+        Console.WriteLine($"Has Pred Consent: {hasPred}, Has Prey Consent: {hasPrey}");
+
+        /* in case prey is inside a container immediately release them when they turn off prey consent
+        works as an emergency button for the prey*/
+        if (!hasPrey &&
+        _containerSystem.TryGetContainingContainer(uid, out var container) &&
+        container.ID == "vore_container")
+                _containerSystem.Remove(uid, container);
+
+        //give the mob the needed component to be able to see the verbs
+        if (hasPred || hasPrey){
+            // to avoid item ghostroles like trays getting vore components
+            if (HasComp<BodyComponent>(uid))
+                EnsureComp<VoreComponent>(uid);
+        }
+        else{
+            RemComp<VoreComponent>(uid);
+        }
+        //TODO for digest ...
     }
 
     /// <summary>
