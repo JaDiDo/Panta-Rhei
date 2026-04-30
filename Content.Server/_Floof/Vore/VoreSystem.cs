@@ -30,7 +30,6 @@ public sealed class VoreSystem : EntitySystem
     [Dependency] private readonly SharedPopupSystem _popupSystem = default!;
     [Dependency] private readonly IConfigurationManager _cfg = default!;
     [Dependency] private readonly CarryingSystem _carryingSystem = default!;
-    [Dependency] private readonly ITimerManager _timer = default!;
 
     public static readonly ProtoId<ConsentTogglePrototype> isPred = "PredVore";
     public static readonly ProtoId<ConsentTogglePrototype> isPrey = "PreyVore";
@@ -186,7 +185,7 @@ public sealed class VoreSystem : EntitySystem
             return;
 
         var pred = uid;
-        var container = _containerSystem.EnsureContainer<Container>(args.User, comp.ContainerId);
+        var container = _containerSystem.EnsureContainer<Container>(pred, comp.ContainerId);
         
         var count = 0;
         //only counts entities with bodies meaning no items
@@ -197,7 +196,7 @@ public sealed class VoreSystem : EntitySystem
         }
         //as a way to prevent too many entities to be devoured
         if (count >= args.MaxPrey){
-            _popupSystem.PopupEntity("You are too full to swallow more prey.", args.User, args.User);
+            _popupSystem.PopupEntity("You are too full to swallow more prey.", pred, pred);
             return;
         }
 
@@ -269,8 +268,8 @@ public sealed class VoreSystem : EntitySystem
         var prey = args.Entity;
 
         // Check if this was an intentional release by the pred (not a self-escape)
-        if (comp.IntentionalRelease){
-            comp.IntentionalRelease = false;
+        if (TryComp<VoreComponent>(prey, out var preyComp) && preyComp.IntentionalRelease){
+            preyComp.IntentionalRelease = false;
             return;
         }
 
