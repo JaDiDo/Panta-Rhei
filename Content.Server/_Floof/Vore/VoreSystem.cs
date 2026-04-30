@@ -73,8 +73,6 @@ public sealed class VoreSystem : EntitySystem
         var hasPrey = _consentSystem.HasConsent(uid, isPrey);
         //TODO var for digest
 
-        //Console.WriteLine($"IsPred{hasPrey}: IsPrey: {hasPred}");
-
         /* in case prey is inside a container immediately release them when they turn off prey consent
         works as an emergency leave for the prey*/
         if (!hasPrey &&
@@ -131,8 +129,8 @@ public sealed class VoreSystem : EntitySystem
             return;
 
         /* if the user is a pred inside a pred allows them to have interactions with prey inside
-        only if they are in the same container however */ 
-        if (IsInVoreContainer(user, comp) && !IsInVoreContainer(target, comp))
+        only if they are in the same container however (not just same type but literally)*/ 
+        if (!IsValidVoreInteraction(user, target, comp))
             return;
 
         // devour (pred → prey)
@@ -154,7 +152,7 @@ public sealed class VoreSystem : EntitySystem
             });
         }
     }
-        
+
     /// <summary>
     /// used for after selecting to insert into someone or devour
     /// will create a slow popup and warning to give both sides time to react on it
@@ -378,5 +376,32 @@ public sealed class VoreSystem : EntitySystem
     private bool IsInVoreContainer(EntityUid uid, VoreComponent comp){
         return _containerSystem.TryGetContainingContainer(uid, out var container) &&
            container.ID == comp.ContainerId;
+    }
+
+    /// <summary>
+    /// checks if prey is inside a vore container to only allow vore in the same container
+    /// </summary>
+    /// <returns>
+    /// false if only one is in a vore container or if both are inside another container
+    /// </returns>
+    private bool IsValidVoreInteraction(EntityUid user, EntityUid target, VoreComponent comp){
+        var userInVore = IsInVoreContainer(user, comp);
+        var targetInVore = IsInVoreContainer(target, comp);
+
+        // one in vore, one not → invalid
+        if (userInVore != targetInVore)
+            return false;
+
+        // both in vore → must be same stomach instance
+        if (userInVore)
+        {
+            _containerSystem.TryGetContainingContainer(user, out var userContainer);
+            _containerSystem.TryGetContainingContainer(target, out var targetContainer);
+
+            if (userContainer!.Owner != targetContainer!.Owner)
+                return false;
+        }
+
+        return true;
     }
 }
