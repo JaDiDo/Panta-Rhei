@@ -307,8 +307,7 @@ public sealed class VoreSystem : EntitySystem
     private void ApplyStomachImmunities(EntityUid prey, VoreComponent comp){
         /*double check making sure they are inside the container
         should prevent possible exploitation of the system*/
-        if (!_containerSystem.TryGetContainingContainer(prey, out var container) ||
-        container.ID != comp.ContainerId)
+        if (!IsInVoreContainer(prey, comp))
            return;
 
         var tracker = EnsureComp<VoreImmunityTrackerComponent>(prey);
@@ -329,7 +328,8 @@ public sealed class VoreSystem : EntitySystem
             EnsureComp<TemperatureImmunityComponent>(prey);
             tracker.AddedTemperature = true;
         }
-        //doesnt fully protect from radiation (given its potassium iodine protection) but will give prey more time to react and escape before radiation starts doing damage (90 percent reduction of radiation damage)
+        /* doesnt fully protect from radiation (given its potassium iodine protection meaning 90 percent reduction of radiation damage) 
+        but will give prey more time to react and escape before radiation starts doing damage */
         if (!HasComp<RadiationProtectionComponent>(prey))
         {
             EnsureComp<RadiationProtectionComponent>(prey);
