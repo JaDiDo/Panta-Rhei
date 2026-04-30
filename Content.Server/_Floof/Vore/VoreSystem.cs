@@ -56,14 +56,14 @@ public sealed class VoreSystem : EntitySystem
         // only if the updated toggle is prey or pred
         if (args.ConsentToggleProtoId != isPred && args.ConsentToggleProtoId != isPrey)
             return;
-        Timer.Spawn(0, () => ApplyVoreConsent(uid));
+        WaitForUpdates(() => ApplyVoreConsent(uid));
     }
 
     /// <summary>
     /// same principle as OnConsentUpdated but without the need for checking consent change
     /// </summary>
     private void OnConsentStartup(EntityUid uid, ConsentComponent comp, ComponentStartup args){
-        Timer.Spawn(0, () => ApplyVoreConsent(uid));
+        WaitForUpdates(() => ApplyVoreConsent(uid));
     }
 
     /// <summary>
@@ -347,7 +347,7 @@ public sealed class VoreSystem : EntitySystem
     /// </summary>
     private void RemoveStomachImmunities(EntityUid prey){
         // necessary to delay the removal incase of multiple containers
-        Timer.Spawn(0, () =>
+        WaitForUpdates(() =>
         {
             // in case the prey still remains inside another vore container (for example multivore) do not remove the immunities
             if (_containerSystem.TryGetContainingContainer(prey, out var container) &&
@@ -365,5 +365,13 @@ public sealed class VoreSystem : EntitySystem
                 RemComp<RadiationProtectionComponent>(prey);
             RemComp<VoreImmunityTrackerComponent>(prey);
         });
+    }
+
+    /// <summary>
+    /// used to delay certain actions by a tick to make sure all the recent changes have been applied 
+    /// for example such as consent changes or container changes, else will often use old values
+    /// </summary>
+    private void WaitForUpdates(Action action){
+        Timer.Spawn(0, action);
     }
 }
