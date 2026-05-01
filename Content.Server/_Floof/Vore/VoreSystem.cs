@@ -34,6 +34,9 @@ public sealed class VoreSystem : EntitySystem
     public static readonly ProtoId<ConsentTogglePrototype> isPred = "PredVore";
     public static readonly ProtoId<ConsentTogglePrototype> isPrey = "PreyVore";
 
+    private readonly HashSet<EntityUid> _pendingConsentUpdates = new();
+    private readonly HashSet<EntityUid> _pendingImmunityUpdates = new();
+
     public override void Initialize()
     {
         SubscribeLocalEvent<ConsentComponent, ComponentStartup>(OnConsentStartup);
@@ -48,6 +51,25 @@ public sealed class VoreSystem : EntitySystem
     }
 
     /// <summary>
+    /// To get the most recent values for consent and current container
+    /// </summary>
+    public override void Update(float frameTime){
+        base.Update(frameTime);
+
+        // processing of consent updates
+        foreach (var uid in _pendingConsentUpdates){
+            ApplyVoreConsent(uid);
+        }
+        _pendingConsentUpdates.Clear();
+
+        // processing of immunity updates
+        foreach (var uid in _pendingImmunityUpdates){
+            RemoveStomachImmunities(uid);
+        }
+        _pendingImmunityUpdates.Clear();
+    }
+
+    /// <summary>
     /// gives the mob vore component when they updated their consent to be pred or prey
     /// in order to avoid giving every mob it one by one, timer needed to get the recent change 
     /// </summary>
@@ -55,14 +77,14 @@ public sealed class VoreSystem : EntitySystem
         // only if the updated toggle is prey or pred
         if (args.ConsentToggleProtoId != isPred && args.ConsentToggleProtoId != isPrey)
             return;
-        WaitForUpdates(() => ApplyVoreConsent(uid));
+        _pendingConsentUpdates.Add(uid);
     }
 
     /// <summary>
     /// same principle as OnConsentUpdated but without the need for checking consent change
     /// </summary>
     private void OnConsentStartup(EntityUid uid, ConsentComponent comp, ComponentStartup args){
-        WaitForUpdates(() => ApplyVoreConsent(uid));
+        _pendingConsentUpdates.Add(uid);
     }
 
     /// <summary>
@@ -72,7 +94,7 @@ public sealed class VoreSystem : EntitySystem
         var hasPred = _consentSystem.HasConsent(uid, isPred);
         var hasPrey = _consentSystem.HasConsent(uid, isPrey);
         //TODO var for digest
-
+        
         /* in case prey is inside a container immediately release them when they turn off prey consent
         works as an emergency leave for the prey*/
         if (!hasPrey &&
@@ -190,7 +212,6 @@ public sealed class VoreSystem : EntitySystem
         foreach (var e in container.ContainedEntities){
             if (HasComp<BodyComponent>(e))
                 count++;
-            Console.WriteLine($"Contained Entity: {e}, Count: {count}");
         }
         //as a way to prevent too many entities to be devoured
         if (count >= args.MaxPrey){
@@ -249,7 +270,7 @@ public sealed class VoreSystem : EntitySystem
                 preyComp.IntentionalRelease = true;
 
             _containerSystem.Remove(prey, container);
-            RemoveStomachImmunities(prey, comp);
+            _pendingImmunityUpdates.Add(prey);
             _popupSystem.PopupEntity("You have been released!", prey, prey);
         }
         _popupSystem.PopupEntity("You release your prey.", pred, pred);
@@ -271,7 +292,7 @@ public sealed class VoreSystem : EntitySystem
             return;
         }
 
-        RemoveStomachImmunities(prey, comp);
+        _pendingImmunityUpdates.Add(prey);
         _popupSystem.PopupEntity("You struggle free!", prey, prey);
         _popupSystem.PopupEntity("Your prey escaped!", uid, uid);
     }
@@ -338,33 +359,23 @@ public sealed class VoreSystem : EntitySystem
     /// the removal of the components after leaving a container
     /// to avoid intentional and accidental exploitation
     /// </summary>
-    private void RemoveStomachImmunities(EntityUid prey, VoreComponent comp){
-        // necessary to delay the removal incase of multiple containers
-        WaitForUpdates(() =>
-        {
-            // in case the prey still remains inside another vore container (for example multivore) do not remove the immunities
-            if (IsInVoreContainer(prey, comp))
-                return;
-            if (!TryComp<VoreImmunityTrackerComponent>(prey, out var tracker))
-                return;
-            if (tracker.AddedPressure)
-                RemComp<PressureImmunityComponent>(prey);
-            if (tracker.AddedBreathing)
-                RemComp<BreathingImmunityComponent>(prey);
-            if (tracker.AddedTemperature)
-                RemComp<TemperatureImmunityComponent>(prey);
-            if (tracker.AddedRadiation)
-                RemComp<RadiationProtectionComponent>(prey);
-            RemComp<VoreImmunityTrackerComponent>(prey);
-        });
-    }
+    private void RemoveStomachImmunities(EntityUid prey){
+        if (!TryComp<VoreImmunityTrackerComponent>(prey, out var tracker))
+            return;
+        // if still in a container skip alltogether for example release from multi vore
+        if (TryComp<VoreComponent>(prey, out var comp) && IsInVoreContainer(prey, comp))
+            return;
 
-    /// <summary>
-    /// used to delay certain actions by a tick to make sure all the recent changes have been applied 
-    /// for example such as consent changes or container changes, else will often use old values
-    /// </summary>
-    private void WaitForUpdates(Action action){
-        Timer.Spawn(0, action);
+        if (tracker.AddedPressure)
+            RemComp<PressureImmunityComponent>(prey);
+        if (tracker.AddedBreathing)
+            RemComp<BreathingImmunityComponent>(prey);
+        if (tracker.AddedTemperature)
+            RemComp<TemperatureImmunityComponent>(prey);
+        if (tracker.AddedRadiation)
+            RemComp<RadiationProtectionComponent>(prey);
+        
+        RemComp<VoreImmunityTrackerComponent>(prey);
     }
 
     /// <summary>
