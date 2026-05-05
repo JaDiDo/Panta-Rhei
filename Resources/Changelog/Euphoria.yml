@@ -2593,3 +2593,9 @@ Entries:
         engineering, hop, librarian, psychologist have been touched up.
   id: 324
   time: '2026-05-03T17:58:04.0000000+00:00'
+- author: Dunrab
+  changes:
+    - type: Add
+      message: Be afraid admins have access to bread grenades and cheese slice grenades
+  id: 325
+  time: '2026-05-05T10:02:03.0000000+00:00'
