@@ -2605,3 +2605,9 @@ Entries:
       message: Food recipes medical guide book entries will display properly again.
   id: 326
   time: '2026-05-06T02:19:23.0000000+00:00'
+- author: sprkl
+  changes:
+    - type: Fix
+      message: Fixed an issue with bibles.
+  id: 327
+  time: '2026-05-06T07:55:26.0000000+00:00'
