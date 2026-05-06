@@ -16,6 +16,7 @@ using Content.Shared._Common.Consent;
 using Content.Shared.Verbs;
 using Content.Shared.Polymorph;
 using Content.Shared.Destructible;
+using Content.Shared.Movement.Pulling.Components;
 using Robust.Shared.Configuration;
 using Content.Shared._DV.Carrying;
 namespace Content.Server._Floof.Vore;
@@ -112,6 +113,34 @@ public sealed class VoreSystem : EntitySystem
                 Text = "Insert Self",
                 Act = () => OnTryVore(target, user)
             });
+        }
+
+        // insert someone else if you pull or carry them
+        EntityUid? carryingPrey = null;
+        //TODO CLEAN CODE AND ADJUST TO PATCH
+        if (TryComp<CarryingComponent>(user, out var carrying) &&
+            carrying.Carried != default){
+            carryingPrey = carrying.Carried;
+        }
+        else if (TryComp<PullerComponent>(user, out var puller) &&
+                puller.Pulling is EntityUid pulling){
+            carryingPrey = pulling;
+        }
+
+        
+        if (carryingPrey != null && carryingPrey is EntityUid prey ){
+        //only should be able to be visible that have vore as a consent toggled one
+            if (HasComp<VoreComponent>(user)){
+                if (_consentSystem.HasConsent(prey, isPrey) &&
+                    _consentSystem.HasConsent(target, isPred))
+                {
+                    args.Verbs.Add(new Verb
+                    {
+                        Text = $"Insert {MetaData(prey).EntityName} into {MetaData(target).EntityName}",
+                        Act = () => OnTryVore(target, prey)
+                    });
+                }
+            }
         }
     }
         
