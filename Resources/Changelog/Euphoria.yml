@@ -2599,3 +2599,9 @@ Entries:
       message: Be afraid admins have access to bread grenades and cheese slice grenades
   id: 325
   time: '2026-05-05T10:02:03.0000000+00:00'
+- author: Dunrab
+  changes:
+    - type: Fix
+      message: Food recipes medical guide book entries will display properly again.
+  id: 326
+  time: '2026-05-06T02:19:23.0000000+00:00'
