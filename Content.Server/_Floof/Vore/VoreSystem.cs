@@ -19,6 +19,7 @@ using Content.Shared.Destructible;
 using Content.Shared.Movement.Pulling.Components;
 using Robust.Shared.Configuration;
 using Content.Shared._DV.Carrying;
+using Content.Shared.Mobs;
 namespace Content.Server._Floof.Vore;
 
 public sealed class VoreSystem : EntitySystem
@@ -43,6 +44,7 @@ public sealed class VoreSystem : EntitySystem
         SubscribeLocalEvent<VoreComponent, BeingGibbedEvent>(OnGibbedRemoveContent);
         SubscribeLocalEvent<VoreComponent, DestructionEventArgs>(OnDestroyedRemoveContent);
         SubscribeLocalEvent<VoreComponent, PolymorphedEvent>(OnPolymorphedTransferContent);
+        SubscribeLocalEvent<VoreComponent, MobStateChangedEvent>(OnPreyMobStateChanged);
     }
 
     /// <summary>
@@ -95,7 +97,7 @@ public sealed class VoreSystem : EntitySystem
         if (_containerSystem.TryGetContainingContainer(user, out var userContainer) && userContainer.ID == "vore_container")
             return;
 
-        // devour (pred → prey)
+        // 1. devour (pred → prey)
         if (_consentSystem.HasConsent(user, isPred)
             && _consentSystem.HasConsent(target, isPrey)){
             args.Verbs.Add(new Verb
@@ -105,7 +107,7 @@ public sealed class VoreSystem : EntitySystem
             });
         }
 
-        // insert self (prey → pred)
+        // 2. insert self (prey → pred)
         if (_consentSystem.HasConsent(user, isPrey)
             && _consentSystem.HasConsent(target, isPred)){
             args.Verbs.Add(new Verb
@@ -115,28 +117,25 @@ public sealed class VoreSystem : EntitySystem
             });
         }
 
-        // insert someone else if you pull or carry them
+        // 3. insert someone else if you pull or carry them
         EntityUid? carryingPrey = null;
-        //TODO CLEAN CODE AND ADJUST TO PATCH
         if (TryComp<CarryingComponent>(user, out var carrying) &&
             carrying.Carried != default){
             carryingPrey = carrying.Carried;
         }
         else if (TryComp<PullerComponent>(user, out var puller) &&
-                puller.Pulling is EntityUid pulling){
+            puller.Pulling is EntityUid pulling){
             carryingPrey = pulling;
         }
-
         
-        if (carryingPrey != null && carryingPrey is EntityUid prey ){
+        if (carryingPrey != null && carryingPrey is EntityUid prey && target != user){
         //only should be able to be visible that have vore as a consent toggled one
             if (HasComp<VoreComponent>(user)){
                 if (_consentSystem.HasConsent(prey, isPrey) &&
-                    _consentSystem.HasConsent(target, isPred))
-                {
+                    _consentSystem.HasConsent(target, isPred)){
                     args.Verbs.Add(new Verb
                     {
-                        Text = $"Insert {MetaData(prey).EntityName} into {MetaData(target).EntityName}",
+                        Text = $"Insert {MetaData(prey).EntityName}",
                         Act = () => OnTryVore(target, prey)
                     });
                 }
@@ -198,6 +197,22 @@ public sealed class VoreSystem : EntitySystem
         /*make the prey immune to space+temp+breathing to avoid consent concerns from outside influence
         gets removed after escaping or being forcefully ejected by pred*/
         ApplyStomachImmunities(prey);
+    }
+
+    /// <summary>
+    /// in case the prey died/crit they need to be ejected from the container
+    /// this way a para wont accidentally stumble on a scene and the corpse
+    /// wont explode from rotting
+    /// <summary>
+    private void OnPreyMobStateChanged(Entity<VoreComponent> ent, ref MobStateChangedEvent args){
+    // TODO ADJUST CONTAINER ID
+        if (!_containerSystem.TryGetContainingContainer(ent.Owner, out var container) ||
+            container.ID != "vore_container")
+            return;
+        // only react to death and crit
+        if (args.NewMobState != MobState.Dead && args.NewMobState != MobState.Critical)
+            return;
+        OnTryReleasePrey(container.Owner);
     }
 
     /// <summary>
