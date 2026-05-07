@@ -128,7 +128,7 @@ public sealed class VoreSystem : EntitySystem
             carryingPrey = pulling;
         }
         
-        if (carryingPrey != null && carryingPrey is EntityUid prey && target != user){
+        if (carryingPrey != null && carryingPrey is EntityUid prey && prey != target){
         //only should be able to be visible that have vore as a consent toggled one
             if (HasComp<VoreComponent>(user)){
                 if (_consentSystem.HasConsent(prey, isPrey) &&
@@ -197,22 +197,6 @@ public sealed class VoreSystem : EntitySystem
         /*make the prey immune to space+temp+breathing to avoid consent concerns from outside influence
         gets removed after escaping or being forcefully ejected by pred*/
         ApplyStomachImmunities(prey);
-    }
-
-    /// <summary>
-    /// in case the prey died/crit they need to be ejected from the container
-    /// this way a para wont accidentally stumble on a scene and the corpse
-    /// wont explode from rotting
-    /// <summary>
-    private void OnPreyMobStateChanged(Entity<VoreComponent> ent, ref MobStateChangedEvent args){
-    // TODO ADJUST CONTAINER ID
-        if (!_containerSystem.TryGetContainingContainer(ent.Owner, out var container) ||
-            container.ID != "vore_container")
-            return;
-        // only react to death and crit
-        if (args.NewMobState != MobState.Dead && args.NewMobState != MobState.Critical)
-            return;
-        OnTryReleasePrey(container.Owner);
     }
 
     /// <summary>
@@ -301,6 +285,22 @@ public sealed class VoreSystem : EntitySystem
     /// </summary>
     private void OnPolymorphedTransferContent(EntityUid uid, VoreComponent comp, PolymorphedEvent args){   
         OnTryReleasePrey(uid);
+    }
+
+    /// <summary>
+    /// in case the prey died/crit they need to be ejected from the container
+    /// this way a para wont accidentally stumble on a scene and the corpse
+    /// wont explode from rotting
+    /// <summary>
+    private void OnPreyMobStateChanged(Entity<VoreComponent> ent, ref MobStateChangedEvent args){
+    // TODO ADJUST CONTAINER ID
+        if (!_containerSystem.TryGetContainingContainer(ent.Owner, out var container) ||
+            container.ID != "vore_container")
+            return;
+        // only react to death and crit
+        if (args.NewMobState != MobState.Dead && args.NewMobState != MobState.Critical)
+            return;
+        OnTryReleasePrey(container.Owner);
     }
     
     /// <summary>
