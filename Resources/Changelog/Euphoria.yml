@@ -2691,3 +2691,11 @@ Entries:
         sound.
   id: 337
   time: '2026-05-08T02:06:11.0000000+00:00'
+- author: Raikyr0
+  changes:
+    - type: Add
+      message: Brings back the Svalinn Laser Pistol that DV disabled.
+    - type: Add
+      message: Brings back the Speed Boots.
+  id: 338
+  time: '2026-05-08T10:10:05.0000000+00:00'
