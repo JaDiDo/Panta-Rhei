@@ -20,6 +20,8 @@ using Content.Shared.Movement.Pulling.Components;
 using Robust.Shared.Configuration;
 using Content.Shared._DV.Carrying;
 using Content.Shared.Mobs;
+using Robust.Shared.Audio.Systems;
+using Robust.Server.Player;
 namespace Content.Server._Floof.Vore;
 
 public sealed class VoreSystem : EntitySystem
@@ -30,6 +32,8 @@ public sealed class VoreSystem : EntitySystem
     [Dependency] private readonly SharedPopupSystem _popupSystem = default!;
     [Dependency] private readonly IConfigurationManager _cfg = default!;
     [Dependency] private readonly CarryingSystem _carryingSystem = default!;
+    [Dependency] private readonly SharedAudioSystem _audioSystem = default!;
+    [Dependency] private readonly IPlayerManager _playerManager = default!;
 
     public static readonly ProtoId<ConsentTogglePrototype> isPred = "PredVore";
     public static readonly ProtoId<ConsentTogglePrototype> isPrey = "PreyVore";
@@ -190,6 +194,14 @@ public sealed class VoreSystem : EntitySystem
 
         //makes sure prey will be dropped from bags and hands
         EnsureEntityFree(pred, prey);
+
+        //gulp sound only for both entities involved
+        if (comp.SoundDevour != null){
+            if (_playerManager.TryGetSessionByEntity(uid, out var predSession))
+                _audioSystem.PlayEntity(comp.SoundDevour, predSession, uid);
+            if (_playerManager.TryGetSessionByEntity(prey, out var preySession))
+                _audioSystem.PlayEntity(comp.SoundDevour, preySession, uid);
+        }
 
         //moves prey inside the person
         _containerSystem.Insert(prey, container);
