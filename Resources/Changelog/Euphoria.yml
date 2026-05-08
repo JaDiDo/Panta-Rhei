@@ -2705,3 +2705,12 @@ Entries:
       message: Added Katana Belt to Security Loadout (firearms)
   id: 339
   time: '2026-05-08T10:13:07.0000000+00:00'
+- author: Dunrab
+  changes:
+    - type: Tweak
+      message: >-
+        Security Technician is now available on Kettle. The Librarian gets their
+        locker, dorms has been partially redone and medicals paramedics get
+        their own room.
+  id: 340
+  time: '2026-05-08T10:14:14.0000000+00:00'
