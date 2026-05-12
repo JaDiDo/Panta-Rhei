@@ -2756,3 +2756,9 @@ Entries:
         monitor server back.
   id: 345
   time: '2026-05-12T17:46:38.0000000+00:00'
+- author: JaDiDo
+  changes:
+    - type: Fix
+      message: Tajaran now get survival boxes too
+  id: 346
+  time: '2026-05-12T17:48:24.0000000+00:00'
