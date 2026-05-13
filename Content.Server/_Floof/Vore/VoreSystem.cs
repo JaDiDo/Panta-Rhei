@@ -20,9 +20,13 @@ using Content.Shared.Movement.Pulling.Components;
 using Robust.Shared.Configuration;
 using Content.Shared._DV.Carrying;
 using Content.Shared.Mobs;
+using Content.Shared.Mobs.Components;
+using Content.Shared.Mobs.Systems;
 using Robust.Server.Player;
 using Content.Shared.Flash.Components;
 using Robust.Server.Audio;
+using Content.Shared.Medical.SuitSensors;
+using Content.Shared.Medical.SuitSensor;
 namespace Content.Server._Floof.Vore;
 
 public sealed class VoreSystem : EntitySystem
@@ -33,6 +37,8 @@ public sealed class VoreSystem : EntitySystem
     [Dependency] private readonly SharedPopupSystem _popupSystem = default!;
     [Dependency] private readonly AudioSystem _audioSystem = default!;
     [Dependency] private readonly CarryingSystem _carryingSystem = default!;
+    [Dependency] private readonly MobStateSystem _mobStateSystem = default!;
+    [Dependency] private readonly SharedSuitSensorSystem _suitSensorSystem = default!;
     [Dependency] private readonly IConfigurationManager _cfg = default!;
     [Dependency] private readonly IPlayerManager _playerManager = default!;
     
@@ -101,6 +107,11 @@ public sealed class VoreSystem : EntitySystem
         Components such as space immunity to the pred
         */
         if (_containerSystem.TryGetContainingContainer(user, out var userContainer) && userContainer.ID == "vore_container")
+            return;
+
+        // not possible to devour crit or dead for consent reasons
+        //TODO DONT MERGE IF I FORGOT: put inside helper method to deal with multi containment
+        if (_mobStateSystem.IsCritical(target) || _mobStateSystem.IsDead(target))
             return;
 
         // 1. devour (pred → prey)
@@ -351,6 +362,8 @@ public sealed class VoreSystem : EntitySystem
             EnsureComp<FlashImmunityComponent>(prey);
             tracker.AddedFlash = true;
         }
+        //TODO DONT MERGE IF I FORGOT: remove from digest
+        _suitSensorSystem.SetAllSensors(prey, SuitSensorMode.SensorOff);
     }
 
     /// <summary>
@@ -369,5 +382,6 @@ public sealed class VoreSystem : EntitySystem
         if (tracker.AddedFlash)
             RemComp<FlashImmunityComponent>(prey);
         RemComp<VoreImmunityTrackerComponent>(prey);
+        _suitSensorSystem.SetAllSensors(prey, SuitSensorMode.SensorCords);
     }
 }
