@@ -2784,3 +2784,11 @@ Entries:
       message: 'Added traits for heat/cold tolerances/intolerances. '
   id: 348
   time: '2026-05-13T09:29:14.0000000+00:00'
+- author: Dunrab
+  changes:
+    - type: Fix
+      message: >-
+        End of round Pacifism will not prevent throwing any entity that does
+        throwing damage.
+  id: 349
+  time: '2026-05-13T09:32:20.0000000+00:00'
