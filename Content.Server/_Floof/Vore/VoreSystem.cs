@@ -20,8 +20,9 @@ using Content.Shared.Movement.Pulling.Components;
 using Robust.Shared.Configuration;
 using Content.Shared._DV.Carrying;
 using Content.Shared.Mobs;
-using Robust.Shared.Audio.Systems;
 using Robust.Server.Player;
+using Content.Shared.Flash.Components;
+using Robust.Server.Audio;
 namespace Content.Server._Floof.Vore;
 
 public sealed class VoreSystem : EntitySystem
@@ -30,10 +31,11 @@ public sealed class VoreSystem : EntitySystem
     [Dependency] private readonly SharedContainerSystem _containerSystem = default!;
     [Dependency] private readonly SharedDoAfterSystem _doAfterSystem = default!;
     [Dependency] private readonly SharedPopupSystem _popupSystem = default!;
-    [Dependency] private readonly IConfigurationManager _cfg = default!;
+    [Dependency] private readonly AudioSystem _audioSystem = default!;
     [Dependency] private readonly CarryingSystem _carryingSystem = default!;
-    [Dependency] private readonly SharedAudioSystem _audioSystem = default!;
+    [Dependency] private readonly IConfigurationManager _cfg = default!;
     [Dependency] private readonly IPlayerManager _playerManager = default!;
+    
 
     public static readonly ProtoId<ConsentTogglePrototype> isPred = "PredVore";
     public static readonly ProtoId<ConsentTogglePrototype> isPrey = "PreyVore";
@@ -198,9 +200,9 @@ public sealed class VoreSystem : EntitySystem
         //gulp sound only for both entities involved
         if (comp.SoundDevour != null){
             if (_playerManager.TryGetSessionByEntity(uid, out var predSession))
-                _audioSystem.PlayEntity(comp.SoundDevour, predSession, uid);
+                _audioSystem.PlayGlobal(comp.SoundDevour, predSession);
             if (_playerManager.TryGetSessionByEntity(prey, out var preySession))
-                _audioSystem.PlayEntity(comp.SoundDevour, preySession, uid);
+                _audioSystem.PlayGlobal(comp.SoundDevour, preySession);
         }
 
         //moves prey inside the person
@@ -344,6 +346,11 @@ public sealed class VoreSystem : EntitySystem
             EnsureComp<TemperatureImmunityComponent>(prey);
             tracker.AddedTemperature = true;
         }
+        if (!HasComp<FlashImmunityComponent>(prey))
+        {
+            EnsureComp<FlashImmunityComponent>(prey);
+            tracker.AddedFlash = true;
+        }
     }
 
     /// <summary>
@@ -359,6 +366,8 @@ public sealed class VoreSystem : EntitySystem
             RemComp<BreathingImmunityComponent>(prey);
         if (tracker.AddedTemperature)
             RemComp<TemperatureImmunityComponent>(prey);
+        if (tracker.AddedFlash)
+            RemComp<FlashImmunityComponent>(prey);
         RemComp<VoreImmunityTrackerComponent>(prey);
     }
 }
