@@ -96,27 +96,9 @@ public sealed class VoreSystem : EntitySystem
         // only when reachable & interactable
         if (!args.CanInteract || !args.CanAccess)
             return;
-        
-        // to avoid empty mind NPCs
-        if (!TryComp<MindContainerComponent>(target, out var mindContainer) || mindContainer.Mind == null)
-            return;
-
-        //no verbs for swallowed people
-        /**TODO
-        making multivore possible. As of now its just a prevention method to avoid giving 
-        Components such as space immunity to the pred
-        */
-        if (_containerSystem.TryGetContainingContainer(user, out var userContainer) && userContainer.ID == "vore_container")
-            return;
-
-        // not possible to devour crit or dead for consent reasons
-        //TODO DONT MERGE IF I FORGOT: put inside helper method to deal with multi containment
-        if (_mobStateSystem.IsCritical(target) || _mobStateSystem.IsDead(target))
-            return;
 
         // 1. devour (pred → prey)
-        if (_consentSystem.HasConsent(user, isPred)
-            && _consentSystem.HasConsent(target, isPrey)){
+        if (IsDevourable(user, target)){
             args.Verbs.Add(new Verb
             {
                 Text = "Devour",
@@ -125,8 +107,7 @@ public sealed class VoreSystem : EntitySystem
         }
 
         // 2. insert self (prey → pred)
-        if (_consentSystem.HasConsent(user, isPrey)
-            && _consentSystem.HasConsent(target, isPred)){
+        if (IsDevourable(target, user)){
             args.Verbs.Add(new Verb
             {
                 Text = "Insert Self",
@@ -135,21 +116,17 @@ public sealed class VoreSystem : EntitySystem
         }
 
         // 3. insert someone else if you pull or carry them
-        EntityUid? carryingPrey = null;
-        if (TryComp<CarryingComponent>(user, out var carrying) &&
-            carrying.Carried != default){
-            carryingPrey = carrying.Carried;
-        }
-        else if (TryComp<PullerComponent>(user, out var puller) &&
-            puller.Pulling is EntityUid pulling){
-            carryingPrey = pulling;
-        }
+        EntityUid? carried = null;
+        if (TryComp<CarryingComponent>(user, out var carrying) && carrying.Carried != default)
+            carried  = carrying.Carried;
+        else if (TryComp<PullerComponent>(user, out var puller) && puller.Pulling is EntityUid pulling)
+            carried  = pulling;
         
-        if (carryingPrey != null && carryingPrey is EntityUid prey && prey != target){
-        //only should be able to be visible that have vore as a consent toggled one
+        if (carried != null && carried is EntityUid prey && prey != target){
+            //TODO CURRENTLY ACCEPTS ANYTHING CARRYING AND DRAGGING 
+        //only should be able to be visible for folks that have vore on
             if (HasComp<VoreComponent>(user)){
-                if (_consentSystem.HasConsent(prey, isPrey) &&
-                    _consentSystem.HasConsent(target, isPred)){
+                if (IsDevourable(target, prey)){
                     args.Verbs.Add(new Verb
                     {
                         Text = $"Insert {MetaData(prey).EntityName}",
@@ -314,12 +291,11 @@ public sealed class VoreSystem : EntitySystem
 
     /// <summary>
     /// in case the prey died/crit they need to be ejected from the container
-    /// this way a para wont accidentally stumble on a scene and the corpse
-    /// wont explode from rotting
+    /// this way a para wont accidentally stumble on a scene and the corpse wont rot
     /// <summary>
-    private void OnPreyMobStateChanged(Entity<VoreComponent> ent, ref MobStateChangedEvent args){
-    // TODO ADJUST CONTAINER ID
-        if (!_containerSystem.TryGetContainingContainer(ent.Owner, out var container) ||
+    private void OnPreyMobStateChanged(EntityUid uid, VoreComponent comp, ref MobStateChangedEvent args){
+    // TODO DONT MERGE IF I FOROGT ADJUST CONTAINER ID AND MAKE SURE TO LEAVE ALL CONTAINERS
+        if (!_containerSystem.TryGetContainingContainer(uid, out var container) ||
             container.ID != "vore_container")
             return;
         // only react to death and crit
@@ -383,5 +359,32 @@ public sealed class VoreSystem : EntitySystem
             RemComp<FlashImmunityComponent>(prey);
         RemComp<VoreImmunityTrackerComponent>(prey);
         _suitSensorSystem.SetAllSensors(prey, SuitSensorMode.SensorCords);
+    }
+
+    /// <summary>
+    /// making sure all the consent toggles and issues are resolved before entering container
+    //TODO paramter
+    /// </summary>
+    private bool IsDevourable(EntityUid user, EntityUid target){
+        if (user == target)
+            return false;
+        if (!TryComp<MindContainerComponent>(target, out var mind) || mind.Mind == null)
+            return false;
+        if (!HasComp<BodyComponent>(target))
+            return false;
+        if (!HasComp<VoreComponent>(target))
+            return false;
+//TODO BEFORE MERGE CONTAINERCHECK FROM PATCH 2            
+    if (_containerSystem.TryGetContainingContainer(target, out var container) &&
+        container.ID == "vore_container")
+        return false;
+        if (_mobStateSystem.IsDead(target) || _mobStateSystem.IsCritical(target))
+            return false;
+        if (!_consentSystem.HasConsent(user, isPred))
+            return false;
+        if (!_consentSystem.HasConsent(target, isPrey))
+            return false;
+        
+        return true;
     }
 }

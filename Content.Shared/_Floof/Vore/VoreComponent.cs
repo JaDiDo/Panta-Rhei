@@ -3,7 +3,6 @@ using Robust.Shared.GameObjects;
 using Robust.Shared.Serialization;
 using Content.Shared.DoAfter;
 using Robust.Shared.Audio;
-
 namespace Content.Shared._Floof.Vore;
 
 [RegisterComponent]
