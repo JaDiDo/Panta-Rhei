@@ -3,6 +3,7 @@ using Robust.Shared.Prototypes;
 using Robust.Shared.Serialization;
 using Robust.Shared.Containers;
 using Content.Shared.Body.Components;
+//TODO REMOVE AFTER MERGE
 using Content.Shared.Mind.Components;
 using Content.Shared.DoAfter;
 using Content.Shared.Popups;
@@ -27,6 +28,7 @@ using Content.Shared.Flash.Components;
 using Robust.Server.Audio;
 using Content.Shared.Medical.SuitSensors;
 using Content.Shared.Medical.SuitSensor;
+//TODO REMOVE TIMING?
 namespace Content.Server._Floof.Vore;
 
 public sealed class VoreSystem : EntitySystem
@@ -123,7 +125,6 @@ public sealed class VoreSystem : EntitySystem
             carried  = pulling;
         
         if (carried != null && carried is EntityUid prey && prey != target){
-            //TODO CURRENTLY ACCEPTS ANYTHING CARRYING AND DRAGGING 
         //only should be able to be visible for folks that have vore on
             if (HasComp<VoreComponent>(user)){
                 if (IsDevourable(target, prey)){
@@ -174,7 +175,6 @@ public sealed class VoreSystem : EntitySystem
         foreach (var e in container.ContainedEntities){
             if (HasComp<BodyComponent>(e))
                 count++;
-            Console.WriteLine($"Contained Entity: {e}, Count: {count}");
         }
         //as a way to prevent too many entities to be devoured
         if (count >= args.MaxPrey){
@@ -368,11 +368,11 @@ public sealed class VoreSystem : EntitySystem
     private bool IsDevourable(EntityUid user, EntityUid target){
         if (user == target)
             return false;
-        if (!TryComp<MindContainerComponent>(target, out var mind) || mind.Mind == null)
+        if (!_playerManager.TryGetSessionByEntity(user, out _))
             return false;
-        if (!HasComp<BodyComponent>(target))
+        if (!_playerManager.TryGetSessionByEntity(target, out _))
             return false;
-        if (!HasComp<VoreComponent>(target))
+        if (!HasComp<BodyComponent>(user) || !HasComp<BodyComponent>(target))
             return false;
 //TODO BEFORE MERGE CONTAINERCHECK FROM PATCH 2            
     if (_containerSystem.TryGetContainingContainer(target, out var container) &&
