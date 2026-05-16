@@ -4,7 +4,7 @@ using Robust.Shared.Serialization;
 using Robust.Shared.Containers;
 using Content.Shared.Body.Components;
 //TODO REMOVE AFTER MERGE
-using Content.Shared.Mind.Components;
+//using Content.Shared.Mind.Components;
 using Content.Shared.DoAfter;
 using Content.Shared.Popups;
 using Content.Shared.FloofStation;
@@ -30,7 +30,7 @@ using Robust.Server.Audio;
 using Content.Shared.Medical.SuitSensors;
 using Content.Shared.Medical.SuitSensor;
 //TODO REMOVE TIMING?
-using Robust.Shared.Timing;
+//using Robust.Shared.Timing;
 namespace Content.Server._Floof.Vore;
 
 public sealed class VoreSystem : EntitySystem
@@ -123,9 +123,7 @@ public sealed class VoreSystem : EntitySystem
 
         //give the mob the needed component to be able to see the verbs
         if (hasPred || hasPrey){
-            // to avoid item ghostroles like trays getting vore components
-            if (HasComp<BodyComponent>(uid))
-                EnsureComp<VoreComponent>(uid);
+            EnsureComp<VoreComponent>(uid);
         }
         else{
             RemComp<VoreComponent>(uid);
@@ -358,14 +356,12 @@ public sealed class VoreSystem : EntitySystem
     /// this way a para wont accidentally stumble on a scene and the corpse wont rot
     /// <summary>
     private void OnPreyMobStateChanged(EntityUid uid, VoreComponent comp, ref MobStateChangedEvent args){
-    // TODO DONT MERGE IF I FOROGT ADJUST CONTAINER ID AND MAKE SURE TO LEAVE ALL CONTAINERS
-        if (!_containerSystem.TryGetContainingContainer(uid, out var container) ||
-            container.ID != "vore_container")
-            return;
-        // only react to death and crit
         if (args.NewMobState != MobState.Dead && args.NewMobState != MobState.Critical)
             return;
-        TryReleasePrey(container.Owner);
+        while (_containerSystem.TryGetContainingContainer(uid, out var container) &&
+            container.ID == comp.ContainerId){
+            TryReleasePrey(container.Owner, comp);
+        }
     }
     
     /// <summary>
@@ -440,26 +436,22 @@ public sealed class VoreSystem : EntitySystem
 
     /// <summary>
     /// making sure all the consent toggles and issues are resolved before entering container
-    //TODO paramter
     /// </summary>
+    /// <returns>
+    /// true if the entity is allowed to be eaten, otherwise false
+    /// </returns>
     private bool IsDevourable(EntityUid user, EntityUid target){
         if (user == target)
             return false;
-        if (!_playerManager.TryGetSessionByEntity(user, out _))
-            return false;
-        if (!_playerManager.TryGetSessionByEntity(target, out _))
+        if (!_playerManager.TryGetSessionByEntity(user, out _) || !_playerManager.TryGetSessionByEntity(target, out _))
             return false;
         if (!HasComp<BodyComponent>(user) || !HasComp<BodyComponent>(target))
             return false;
-//TODO BEFORE MERGE CONTAINERCHECK FROM PATCH 2            
-    if (_containerSystem.TryGetContainingContainer(target, out var container) &&
-        container.ID == "vore_container")
-        return false;
+        if (TryComp<VoreComponent>(user, out var comp) && !IsValidContainment(user, target, comp))
+            return false;
         if (_mobStateSystem.IsDead(target) || _mobStateSystem.IsCritical(target))
             return false;
-        if (!_consentSystem.HasConsent(user, isPred))
-            return false;
-        if (!_consentSystem.HasConsent(target, isPrey))
+        if (!_consentSystem.HasConsent(user, isPred) || !_consentSystem.HasConsent(target, isPrey))
             return false;
         
         return true;
@@ -482,7 +474,7 @@ public sealed class VoreSystem : EntitySystem
     /// <returns>
     /// false if only one is in a vore container or if both are inside another container
     /// </returns>
-    private bool IsValidVoreInteraction(EntityUid user, EntityUid target, VoreComponent comp){
+    private bool IsValidContainment(EntityUid user, EntityUid target, VoreComponent comp){
         var userInVore = IsInVoreContainer(user, comp);
         var targetInVore = IsInVoreContainer(target, comp);
 
