@@ -9,9 +9,14 @@ namespace Content.Shared._Floof.Vore;
 public sealed partial class VoreComponent : Component
 {
     /// <summary>
+    /// The ID of the container used for vore mechanics.
+    /// </summary>
+    //TODO later include customizable containers for different vore types
+    [DataField("containerId")]
+    public string ContainerId = "vore_container";
+    /// <summary>
     /// Set to true when the pred intentionally releases this entity to suppress escape popup
     /// </summary>
-    [DataField]
     public bool IntentionalRelease = false;
     [DataField]
     public SoundSpecifier SoundDevour = new SoundPathSpecifier("/Audio/_Floof/Vore/gulp.ogg");
@@ -35,4 +40,5 @@ public sealed partial class VoreImmunityTrackerComponent : Component
     public bool AddedBreathing;
     public bool AddedTemperature;
     public bool AddedFlash;
+    public bool AddedRadiation;
 }
