@@ -3,8 +3,6 @@ using Robust.Shared.Prototypes;
 using Robust.Shared.Serialization;
 using Robust.Shared.Containers;
 using Content.Shared.Body.Components;
-//TODO REMOVE AFTER MERGE
-//using Content.Shared.Mind.Components;
 using Content.Shared.DoAfter;
 using Content.Shared.Popups;
 using Content.Shared.FloofStation;
@@ -29,8 +27,6 @@ using Content.Shared.Flash.Components;
 using Robust.Server.Audio;
 using Content.Shared.Medical.SuitSensors;
 using Content.Shared.Medical.SuitSensor;
-//TODO REMOVE TIMING?
-//using Robust.Shared.Timing;
 namespace Content.Server._Floof.Vore;
 
 public sealed class VoreSystem : EntitySystem
@@ -137,13 +133,21 @@ public sealed class VoreSystem : EntitySystem
     /// only show up when the consent has been selected on both sides
     /// </summary>
     private void OnGetVerbs(EntityUid uid, VoreComponent comp, GetVerbsEvent<Verb> args){
-        var user = args.User;
-        var target = args.Target;
-
         // using command to turn on/off verb components
         if (!_cfg.GetCVar(VoreCVars.VoreEnabled))
             return;
         
+        BuildVoreContainerVerbs(uid, comp, args);
+        //TODO BEFORE MERGE
+        //BuildDigestVerbs(uid, comp, args);
+    }
+
+    /// <summary>
+    /// handles the verbs that control the container such as inserting/removing
+    /// </summary>
+    private void BuildVoreContainerVerbs(EntityUid uid, VoreComponent comp, GetVerbsEvent<Verb> args){
+        var user = args.User;
+        var target = args.Target;
         // no self activation, only there to remove your own prey and not have other intervene or have others see that you have prey
         if (user == target){
             var container = _containerSystem.EnsureContainer<Container>(target, comp.ContainerId);
@@ -151,7 +155,7 @@ public sealed class VoreSystem : EntitySystem
                 args.Verbs.Add(new Verb
                 {
                     Text = "Remove Prey",
-                    Act = () =>TryReleasePrey(target, comp)
+                    Act = () => TryReleasePrey(target, comp)
                 });
             }
             return;
@@ -187,7 +191,7 @@ public sealed class VoreSystem : EntitySystem
             carried  = pulling;
         
         if (carried != null && carried is EntityUid prey && prey != target){
-        //only should be able to be visible for folks that have vore on
+        //only should be able to be visible for folks that have vore on therefor the component
             if (HasComp<VoreComponent>(user)){
                 if (IsDevourable(target, prey)){
                     args.Verbs.Add(new Verb
