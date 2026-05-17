@@ -42,10 +42,12 @@ public sealed class VoreSystem : EntitySystem
     [Dependency] private readonly IConfigurationManager _cfg = default!;
     [Dependency] private readonly IPlayerManager _playerManager = default!;
     
+    [Dependency] private readonly DigestSystem _digestSystem = default!;
 
     public static readonly ProtoId<ConsentTogglePrototype> isPred = "PredVore";
     public static readonly ProtoId<ConsentTogglePrototype> isPrey = "PreyVore";
-
+    public static readonly ProtoId<ConsentTogglePrototype> isDigest = "Digestable";
+    
     private readonly HashSet<EntityUid> _pendingConsentUpdates = new();
     private readonly HashSet<EntityUid> _pendingImmunityUpdates = new();
 
@@ -71,12 +73,18 @@ public sealed class VoreSystem : EntitySystem
 
         // processing of consent updates
         foreach (var uid in _pendingConsentUpdates){
+            if (!EntityManager.EntityExists(uid) ||
+            EntityManager.IsQueuedForDeletion(uid))
+                continue;
             ApplyVoreConsent(uid);
         }
         _pendingConsentUpdates.Clear();
 
         // processing of immunity updates
         foreach (var uid in _pendingImmunityUpdates){
+            if (!EntityManager.EntityExists(uid) ||
+            EntityManager.IsQueuedForDeletion(uid))
+                continue;
             RemoveStomachImmunities(uid);
         }
         _pendingImmunityUpdates.Clear();
@@ -88,7 +96,9 @@ public sealed class VoreSystem : EntitySystem
     /// </summary>
     private void OnConsentUpdated(EntityUid uid, ConsentComponent comp, EntityConsentToggleUpdatedEvent args){
         // only if the updated toggle is prey or pred
-        if (args.ConsentToggleProtoId != isPred && args.ConsentToggleProtoId != isPrey)
+        if (args.ConsentToggleProtoId != isPred && 
+        args.ConsentToggleProtoId != isPrey &&
+        args.ConsentToggleProtoId != isDigest)
             return;
         _pendingConsentUpdates.Add(uid);
     }
@@ -106,7 +116,6 @@ public sealed class VoreSystem : EntitySystem
     private void ApplyVoreConsent(EntityUid uid){
         var hasPred = _consentSystem.HasConsent(uid, isPred);
         var hasPrey = _consentSystem.HasConsent(uid, isPrey);
-        //TODO var for digest
         
         /* in case prey is inside a container immediately release them when they turn off prey consent
         works as an emergency leave for the prey*/
@@ -123,9 +132,15 @@ public sealed class VoreSystem : EntitySystem
         }
         else{
             RemComp<VoreComponent>(uid);
+            
         }
-        
-        //TODO component for digest
+
+        if (_consentSystem.HasConsent(uid, isDigest)){
+            EnsureComp<DigestComponent>(uid);
+        }
+        else{
+            RemComp<DigestComponent>(uid);
+        }
     }
 
     /// <summary>
@@ -137,9 +152,12 @@ public sealed class VoreSystem : EntitySystem
         if (!_cfg.GetCVar(VoreCVars.VoreEnabled))
             return;
         
+        // only when reachable & interactable
+        if (!args.CanInteract || !args.CanAccess)
+            return;
+
         BuildVoreContainerVerbs(uid, comp, args);
-        //TODO BEFORE MERGE
-        //BuildDigestVerbs(uid, comp, args);
+        _digestSystem.BuildDigestVerbs(uid, comp, args);
     }
 
     /// <summary>
@@ -155,7 +173,8 @@ public sealed class VoreSystem : EntitySystem
                 args.Verbs.Add(new Verb
                 {
                     Text = "Remove Prey",
-                    Act = () => TryReleasePrey(target, comp)
+                    Category = VerbCategory.Vore,
+                    Act = () =>TryReleasePrey(target, comp)
                 });
             }
             return;
@@ -170,6 +189,7 @@ public sealed class VoreSystem : EntitySystem
             args.Verbs.Add(new Verb
             {
                 Text = "Devour",
+                Category = VerbCategory.Vore,
                 Act = () => TryVore(user, target)
             });
         }
@@ -179,6 +199,7 @@ public sealed class VoreSystem : EntitySystem
             args.Verbs.Add(new Verb
             {
                 Text = "Insert Self",
+                Category = VerbCategory.Vore,
                 Act = () => TryVore(target, user)
             });
         }
@@ -197,6 +218,7 @@ public sealed class VoreSystem : EntitySystem
                     args.Verbs.Add(new Verb
                     {
                         Text = $"Insert {MetaData(prey).EntityName}",
+                        Category = VerbCategory.Vore,
                         Act = () => TryVore(target, prey)
                     });
                 }

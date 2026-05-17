@@ -91,5 +91,8 @@ namespace Content.Shared.Verbs
 
         // Used by Starlight item switching verbs
         public static readonly VerbCategory Switch = new("verb-categories-switch", null);
+
+        //Used by VoreSystem verbs
+        public static readonly VerbCategory Vore = new("Vore", null);
     }
 }
