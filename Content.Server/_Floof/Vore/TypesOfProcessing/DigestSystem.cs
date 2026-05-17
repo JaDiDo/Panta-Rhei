@@ -4,7 +4,6 @@ using Content.Shared.Popups;
 using Content.Shared.Verbs;
 using Content.Shared._Floof.Vore;
 using Content.Shared.Mind.Components;
-using Content.Shared._Common.Consent;
 using Content.Server.Mind;
 using Content.Shared.Medical.SuitSensors;
 using Content.Shared.Medical.SuitSensor;
@@ -26,7 +25,6 @@ public sealed class DigestSystem : EntitySystem
     [Dependency] private readonly SharedContainerSystem _containerSystem = default!;
     [Dependency] private readonly SharedPopupSystem _popupSystem = default!;
     [Dependency] private readonly MindSystem _mind = default!;
-    [Dependency] private readonly SharedConsentSystem _consentSystem = default!;
     [Dependency] private readonly SharedSuitSensorSystem _suitSensorSystem = default!;
     [Dependency] private readonly HungerSystem _hunger = default!;
     [Dependency] private readonly BatterySystem _battery = default!;
@@ -53,19 +51,15 @@ public sealed class DigestSystem : EntitySystem
         if (!_containerSystem.TryGetContainer(uid, "vore_container", out var container))
             return;
         
-        //only shows verb if there is atleast one prey in the stomach
-        if (container.ContainedEntities.Count == 0)
-            return;
-
         //goes through all prey inside the stomach
         foreach (var prey in container.ContainedEntities){
             var preyName = Name(prey);
             
+            // having the verb implies the consent has been toggled on
             if (!TryComp<DigestComponent>(prey, out var digest))
                 continue;
             
-            //only shows verb if the prey has consented to being digested
-            if (_consentSystem.HasConsent(prey, "Digestable") && !digest.ActiveDigesting.Contains(prey)){
+            if (!digest.ActiveDigesting.Contains(prey)){
                 args.Verbs.Add(new Verb
                 {
                     Text = $"Digest {preyName}",
@@ -74,8 +68,7 @@ public sealed class DigestSystem : EntitySystem
                 });
             }
 
-            //only shows up if the prey is currently being digested
-            else if (digest.ActiveDigesting.Contains(prey)){
+            else{
                 args.Verbs.Add(new Verb
                 {
                     Text = $"Stop digesting {preyName}",
@@ -190,8 +183,7 @@ public sealed class DigestSystem : EntitySystem
                     /* in case prey is removed from container stop digestion and go through regeneration path
                     or in case consent is removed during digestion*/
                     if (!_containerSystem.TryGetContainingContainer(prey, out var container) ||
-                    container.ID != "vore_container" ||
-                    !_consentSystem.HasConsent(prey, "Digestable")){
+                    container.ID != "vore_container"){
                         comp.ActiveDigesting.Remove(prey);
                         comp.Timer[prey] = 0f;
                         continue;

@@ -73,8 +73,7 @@ public sealed class VoreSystem : EntitySystem
 
         // processing of consent updates
         foreach (var uid in _pendingConsentUpdates){
-            if (!EntityManager.EntityExists(uid) ||
-            EntityManager.IsQueuedForDeletion(uid))
+            if (!HasComp<ConsentComponent>(uid))
                 continue;
             ApplyVoreConsent(uid);
         }
@@ -82,9 +81,6 @@ public sealed class VoreSystem : EntitySystem
 
         // processing of immunity updates
         foreach (var uid in _pendingImmunityUpdates){
-            if (!EntityManager.EntityExists(uid) ||
-            EntityManager.IsQueuedForDeletion(uid))
-                continue;
             RemoveStomachImmunities(uid);
         }
         _pendingImmunityUpdates.Clear();
@@ -95,7 +91,7 @@ public sealed class VoreSystem : EntitySystem
     /// in order to avoid giving every mob it one by one, timer needed to get the recent change 
     /// </summary>
     private void OnConsentUpdated(EntityUid uid, ConsentComponent comp, EntityConsentToggleUpdatedEvent args){
-        // only if the updated toggle is prey or pred
+        // only if the updated toggle is prey, pred or digest
         if (args.ConsentToggleProtoId != isPred && 
         args.ConsentToggleProtoId != isPrey &&
         args.ConsentToggleProtoId != isDigest)
@@ -185,7 +181,7 @@ public sealed class VoreSystem : EntitySystem
             return;
 
         // 1. devour (pred → prey)
-        if (IsDevourable(user, target)){
+        if (IsDevourable(user, target, comp)){
             args.Verbs.Add(new Verb
             {
                 Text = "Devour",
@@ -193,18 +189,18 @@ public sealed class VoreSystem : EntitySystem
                 Act = () => TryVore(user, target)
             });
         }
-
         // 2. insert self (prey → pred)
-        if (IsDevourable(target, user)){
-            args.Verbs.Add(new Verb
-            {
-                Text = "Insert Self",
-                Category = VerbCategory.Vore,
-                Act = () => TryVore(target, user)
-            });
+        if (IsDevourable(target, user, comp)){
+                args.Verbs.Add(new Verb
+                {
+                    Text = "Insert Self",
+                    Category = VerbCategory.Vore,
+                    Act = () => TryVore(target, user)
+                });
         }
 
         // 3. insert someone else if you pull or carry them
+        // subscription implies has vorecomponent -> prey or pred turned on for consent
         EntityUid? carried = null;
         if (TryComp<CarryingComponent>(user, out var carrying) && carrying.Carried != default)
             carried  = carrying.Carried;
@@ -212,16 +208,13 @@ public sealed class VoreSystem : EntitySystem
             carried  = pulling;
         
         if (carried != null && carried is EntityUid prey && prey != target){
-        //only should be able to be visible for folks that have vore on therefor the component
-            if (HasComp<VoreComponent>(user)){
-                if (IsDevourable(target, prey)){
-                    args.Verbs.Add(new Verb
-                    {
-                        Text = $"Insert {MetaData(prey).EntityName}",
-                        Category = VerbCategory.Vore,
-                        Act = () => TryVore(target, prey)
-                    });
-                }
+            if (IsDevourable(target, prey, comp)){
+                args.Verbs.Add(new Verb
+                {
+                    Text = $"Insert {Name(prey)}",
+                    Category = VerbCategory.Vore,
+                    Act = () => TryVore(target, prey)
+                });
             }
         }
     }
@@ -378,7 +371,7 @@ public sealed class VoreSystem : EntitySystem
     }
 
     /// <summary>
-    /// in case the prey died/crit they need to be ejected from the container
+    /// in case the prey died/crit they need to be ejected from ALL vorecontainers
     /// this way a para wont accidentally stumble on a scene and the corpse wont rot
     /// <summary>
     private void OnPreyMobStateChanged(EntityUid uid, VoreComponent comp, ref MobStateChangedEvent args){
@@ -430,7 +423,6 @@ public sealed class VoreSystem : EntitySystem
             EnsureComp<RadiationProtectionComponent>(prey);
             tracker.AddedRadiation = true;
         }
-        //TODO DONT MERGE IF I FORGOT: remove from digest
         _suitSensorSystem.SetAllSensors(prey, SuitSensorMode.SensorOff);
     }
 
@@ -464,20 +456,20 @@ public sealed class VoreSystem : EntitySystem
     /// making sure all the consent toggles and issues are resolved before entering container
     /// </summary>
     /// <returns>
-    /// true if the entity is allowed to be eaten, otherwise false
+    /// true if the entity is allowed to be eaten
     /// </returns>
-    private bool IsDevourable(EntityUid user, EntityUid target){
+    private bool IsDevourable(EntityUid user, EntityUid target, VoreComponent comp){
         if (user == target)
             return false;
         if (!_playerManager.TryGetSessionByEntity(user, out _) || !_playerManager.TryGetSessionByEntity(target, out _))
             return false;
         if (!HasComp<BodyComponent>(user) || !HasComp<BodyComponent>(target))
             return false;
-        if (TryComp<VoreComponent>(user, out var comp) && !IsValidContainment(user, target, comp))
-            return false;
-        if (_mobStateSystem.IsDead(target) || _mobStateSystem.IsCritical(target))
+        if (!IsValidContainment(user, target, comp))
             return false;
         if (!_consentSystem.HasConsent(user, isPred) || !_consentSystem.HasConsent(target, isPrey))
+            return false;
+        if (_mobStateSystem.IsDead(target) || _mobStateSystem.IsCritical(target))
             return false;
         
         return true;
@@ -487,7 +479,7 @@ public sealed class VoreSystem : EntitySystem
     /// checks if an entity is inside a vore container
     /// </summary>
     /// <returns>
-    /// true if the entity is inside any vore container, otherwise false
+    /// true if the entity is inside any vore container
     /// </returns>
     private bool IsInVoreContainer(EntityUid uid, VoreComponent comp){
         return _containerSystem.TryGetContainingContainer(uid, out var container) &&
