@@ -109,11 +109,6 @@ public sealed class DigestSystem : EntitySystem
     /// and sending it to cryostorage after which they get deleted
     /// </summary>
     private void FinishDigest(EntityUid prey){
-        
-        // to avoid escape popup
-        if (TryComp<VoreComponent>(prey, out var preyComp))
-            preyComp.IntentionalRelease = true;
-
         if (_containerSystem.TryGetContainingContainer(prey, out var container))
             _popupSystem.PopupEntity("You feel satiated as you feel your belly shrinks down in size", container.Owner, container.Owner);
         
