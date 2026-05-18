@@ -9,7 +9,6 @@ using Content.Shared.FloofStation;
 using Content.Shared._Floof.Vore;
 using Content.Shared._Shitmed.Body.Components;
 using Content.Shared._DV.CosmicCult.Components;
-using Content.Server.Radiation.Components;
 using Content.Server.Atmos.Components;
 using Content.Shared.Body.Events;
 using Content.Shared._Common.Consent;
@@ -27,6 +26,7 @@ using Content.Shared.Flash.Components;
 using Robust.Server.Audio;
 using Content.Shared.Medical.SuitSensors;
 using Content.Shared.Medical.SuitSensor;
+using Content.Shared.Damage.Systems;
 namespace Content.Server._Floof.Vore;
 
 public sealed class VoreSystem : EntitySystem
@@ -63,6 +63,7 @@ public sealed class VoreSystem : EntitySystem
         SubscribeLocalEvent<VoreComponent, DestructionEventArgs>(OnDestroyedRemoveContent);
         SubscribeLocalEvent<VoreComponent, PolymorphedEvent>(OnPolymorphedTransferContent);
         SubscribeLocalEvent<VoreComponent, MobStateChangedEvent>(OnPreyMobStateChanged);
+        SubscribeLocalEvent<VoreImmunityTrackerComponent, BeforeDamageChangedEvent>(OnBeforeDamageChanged);
     }
 
     /// <summary>
@@ -373,7 +374,7 @@ public sealed class VoreSystem : EntitySystem
     /// <summary>
     /// in case the prey died/crit they need to be ejected from ALL vorecontainers
     /// this way a para wont accidentally stumble on a scene and the corpse wont rot
-    /// <summary>
+    /// </summary>
     private void OnPreyMobStateChanged(EntityUid uid, VoreComponent comp, ref MobStateChangedEvent args){
         if (args.NewMobState != MobState.Dead && args.NewMobState != MobState.Critical)
             return;
@@ -381,6 +382,17 @@ public sealed class VoreSystem : EntitySystem
             container.ID == comp.ContainerId){
             TryReleasePrey(container.Owner, comp);
         }
+    }
+
+    /// <summary>
+    /// will nullify any damage when you are inside a vorecontainer for consent purposes
+    /// </summary>
+    private void OnBeforeDamageChanged(EntityUid uid, VoreImmunityTrackerComponent comp, ref BeforeDamageChangedEvent args){
+        if (!TryComp<VoreComponent>(uid, out var vore))
+            return;
+        if (!IsInVoreContainer(uid, vore))
+            return;
+        args.Cancelled = true;
     }
     
     /// <summary>
@@ -416,13 +428,6 @@ public sealed class VoreSystem : EntitySystem
             EnsureComp<FlashImmunityComponent>(prey);
             tracker.AddedFlash = true;
         }
-        /* doesnt fully protect from radiation (given its potassium iodine protection meaning 90 percent reduction of radiation damage) 
-        but will give prey more time to react and escape before radiation starts doing damage */
-        if (!HasComp<RadiationProtectionComponent>(prey))
-        {
-            EnsureComp<RadiationProtectionComponent>(prey);
-            tracker.AddedRadiation = true;
-        }
         _suitSensorSystem.SetAllSensors(prey, SuitSensorMode.SensorOff);
     }
 
@@ -445,8 +450,6 @@ public sealed class VoreSystem : EntitySystem
             RemComp<TemperatureImmunityComponent>(prey);
         if (tracker.AddedFlash)
             RemComp<FlashImmunityComponent>(prey);
-        if (tracker.AddedRadiation)
-            RemComp<RadiationProtectionComponent>(prey);
         
         RemComp<VoreImmunityTrackerComponent>(prey);
         _suitSensorSystem.SetAllSensors(prey, SuitSensorMode.SensorCords);

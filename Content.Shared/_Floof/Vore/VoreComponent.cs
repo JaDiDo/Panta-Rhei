@@ -40,5 +40,4 @@ public sealed partial class VoreImmunityTrackerComponent : Component
     public bool AddedBreathing;
     public bool AddedTemperature;
     public bool AddedFlash;
-    public bool AddedRadiation;
 }
