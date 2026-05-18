@@ -62,7 +62,7 @@ public sealed class VoreSystem : EntitySystem
         SubscribeLocalEvent<VoreComponent, BeingGibbedEvent>(OnGibbedRemoveContent);
         SubscribeLocalEvent<VoreComponent, DestructionEventArgs>(OnDestroyedRemoveContent);
         SubscribeLocalEvent<VoreComponent, PolymorphedEvent>(OnPolymorphedTransferContent);
-        SubscribeLocalEvent<VoreComponent, MobStateChangedEvent>(OnPreyMobStateChanged);
+        SubscribeLocalEvent<VoreImmunityTrackerComponent, MobStateChangedEvent>(OnPreyMobStateChanged);
         SubscribeLocalEvent<VoreImmunityTrackerComponent, BeforeDamageChangedEvent>(OnBeforeDamageChanged);
     }
 
@@ -375,12 +375,14 @@ public sealed class VoreSystem : EntitySystem
     /// in case the prey died/crit they need to be ejected from ALL vorecontainers
     /// this way a para wont accidentally stumble on a scene and the corpse wont rot
     /// </summary>
-    private void OnPreyMobStateChanged(EntityUid uid, VoreComponent comp, ref MobStateChangedEvent args){
+    private void OnPreyMobStateChanged(EntityUid uid, VoreImmunityTrackerComponent comp, ref MobStateChangedEvent args){
         if (args.NewMobState != MobState.Dead && args.NewMobState != MobState.Critical)
             return;
+        if (!TryComp<VoreComponent>(uid, out var vore))
+            return;
         while (_containerSystem.TryGetContainingContainer(uid, out var container) &&
-            container.ID == comp.ContainerId){
-            TryReleasePrey(container.Owner, comp);
+            container.ID == vore.ContainerId){
+            TryReleasePrey(container.Owner, vore);
         }
     }
 
@@ -388,6 +390,8 @@ public sealed class VoreSystem : EntitySystem
     /// will nullify any damage when you are inside a vorecontainer for consent purposes
     /// </summary>
     private void OnBeforeDamageChanged(EntityUid uid, VoreImmunityTrackerComponent comp, ref BeforeDamageChangedEvent args){
+        /*double check making sure they are inside the container
+        should prevent possible exploitation of the system*/
         if (!TryComp<VoreComponent>(uid, out var vore))
             return;
         if (!IsInVoreContainer(uid, vore))
