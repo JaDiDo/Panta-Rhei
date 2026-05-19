@@ -112,11 +112,13 @@ public sealed class VoreSystem : EntitySystem
         var hasPred = _consentSystem.HasConsent(uid, isPred);
         var hasPrey = _consentSystem.HasConsent(uid, isPrey);
         
-        /* in case prey is inside a container immediately release them when they turn off prey consent
-        works as an emergency leave for the prey*/
+        /* in case consent turned off remove the user from all containers and/or remove all prey*/
         if (!hasPrey && IsInVoreContainer(uid) &&
         _containerSystem.TryGetContainingContainer(uid, out var container)){
             _containerSystem.Remove(uid, container);
+        }
+        if(!hasPred){
+            TryReleasePrey(uid, EnsureComp<VoreComponent>(uid));
         }
 
         //give the mob the needed component to be able to see the verbs
@@ -191,9 +193,7 @@ public sealed class VoreSystem : EntitySystem
                     Act = () => TryVore(target, user)
                 });
         }
-
         // 3. insert someone else if you pull or carry them
-        // subscription implies has vorecomponent -> prey or pred turned on for consent
         EntityUid? carried = null;
         if (TryComp<CarryingComponent>(user, out var carrying) && carrying.Carried != default)
             carried  = carrying.Carried;
@@ -201,7 +201,8 @@ public sealed class VoreSystem : EntitySystem
             carried  = pulling;
         
         if (carried != null && carried is EntityUid prey && prey != target){
-            if (IsDevourable(target, prey)){
+            // making sure the user has either prey or pred on to be able to see the verb
+            if (TryComp<VoreComponent>(user, out _) && IsDevourable(target, prey)){
                 args.Verbs.Add(new Verb
                 {
                     Text = $"Insert {Name(prey)}",
@@ -308,6 +309,11 @@ public sealed class VoreSystem : EntitySystem
     private void TryReleasePrey(EntityUid pred, VoreComponent comp){
         var container = _containerSystem.EnsureContainer<Container>(pred, comp.ContainerId);
         var preyList = new List<EntityUid>(container.ContainedEntities);
+        
+        //to avoid unnecessary popups
+        if (preyList.Count == 0)
+            return;
+        
         //remove everything from people to items
         foreach (var prey in preyList){
             // in case pred intentionally releases the prey to avoid escape popups
@@ -373,20 +379,26 @@ public sealed class VoreSystem : EntitySystem
         if (!TryComp<VoreComponent>(uid, out var vore))
             return;
         while (_containerSystem.TryGetContainingContainer(uid, out var container) &&
-            container.ID == vore.ContainerId){
+        container.ID == vore.ContainerId){
             TryReleasePrey(container.Owner, vore);
         }
     }
 
     /// <summary>
-    /// will nullify any damage when you are inside a vorecontainer for consent purposes
+    /// will nullify any damage except for airloss and bloodloss to avoid exploits
+    /// when you are inside a vorecontainer for consent purposes
     /// </summary>
     private void OnBeforeDamageChanged(EntityUid uid, VoreImmunityTrackerComponent comp, ref BeforeDamageChangedEvent args){
         /*double check making sure they are inside the container
         should prevent possible exploitation of the system*/
         if (!IsInVoreContainer(uid))
             return;
-        args.Cancelled = true;
+        var damageTypes = new List<string>(args.Damage.DamageDict.Keys);
+        foreach (var type in damageTypes){
+            if (type != "Airloss" && type != "Bloodloss"){
+                args.Damage.DamageDict[type] = 0;
+            }
+        }
     }
     
     /// <summary>
@@ -445,8 +457,8 @@ public sealed class VoreSystem : EntitySystem
         if (tracker.AddedFlash)
             RemComp<FlashImmunityComponent>(prey);
         
-        RemComp<VoreImmunityTrackerComponent>(prey);
         _suitSensorSystem.SetAllSensors(prey, SuitSensorMode.SensorCords);
+        RemComp<VoreImmunityTrackerComponent>(prey);
     }
 
     /// <summary>
@@ -473,7 +485,7 @@ public sealed class VoreSystem : EntitySystem
     }
 
     /// <summary>
-    /// checks if an entity is inside a vore container
+    /// helper method to check if an entity is inside a vore container 
     /// </summary>
     /// <returns>
     /// true if the entity is inside any vore container
