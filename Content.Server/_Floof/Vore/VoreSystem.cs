@@ -34,8 +34,6 @@ public sealed class VoreSystem : EntitySystem
     [Dependency] private readonly MobStateSystem _mobStateSystem = default!;
     [Dependency] private readonly IConfigurationManager _cfg = default!;
     [Dependency] private readonly IPlayerManager _playerManager = default!;
-    
-    [Dependency] private readonly DigestSystem _digestSystem = default!;
 
     public static readonly ProtoId<ConsentTogglePrototype> isPred = "PredVore";
     public static readonly ProtoId<ConsentTogglePrototype> isPrey = "PreyVore";
@@ -133,7 +131,8 @@ public sealed class VoreSystem : EntitySystem
             return;
 
         BuildVoreContainerVerbs(uid, comp, args);
-        _digestSystem.BuildDigestVerbs(uid, comp, args);
+        var digestSystem = EntitySystem.Get<DigestSystem>();
+        digestSystem.BuildDigestVerbs(uid, comp, args);
     }
 
     /// <summary>
@@ -155,13 +154,9 @@ public sealed class VoreSystem : EntitySystem
             }
             return;
         }
-
-        // only when reachable & interactable
-        if (!args.CanInteract || !args.CanAccess)
-            return;
-
+        
         // 1. devour (pred → prey)
-        if (IsDevourable(user, target, comp)){
+        if (IsDevourable(user, target)){
             args.Verbs.Add(new Verb
             {
                 Text = "Devour",
@@ -170,7 +165,7 @@ public sealed class VoreSystem : EntitySystem
             });
         }
         // 2. insert self (prey → pred)
-        if (IsDevourable(target, user, comp)){
+        if (IsDevourable(target, user)){
                 args.Verbs.Add(new Verb
                 {
                     Text = "Insert Self",
@@ -188,7 +183,7 @@ public sealed class VoreSystem : EntitySystem
             carried  = pulling;
         
         if (carried != null && carried is EntityUid prey && prey != target){
-            if (IsDevourable(target, prey, comp)){
+            if (IsDevourable(target, prey)){
                 args.Verbs.Add(new Verb
                 {
                     Text = $"Insert {Name(prey)}",
@@ -327,14 +322,14 @@ public sealed class VoreSystem : EntitySystem
     /// <returns>
     /// true if the entity is allowed to be eaten
     /// </returns>
-    private bool IsDevourable(EntityUid user, EntityUid target, VoreComponent comp){
+    private bool IsDevourable(EntityUid user, EntityUid target){
         if (user == target)
             return false;
         if (!_playerManager.TryGetSessionByEntity(user, out _) || !_playerManager.TryGetSessionByEntity(target, out _))
             return false;
         if (!HasComp<BodyComponent>(user) || !HasComp<BodyComponent>(target))
             return false;
-        if (!IsValidContainment(user, target, comp))
+        if (!IsValidContainment(user, target))
             return false;
         if (!_consentSystem.HasConsent(user, isPred) || !_consentSystem.HasConsent(target, isPrey))
             return false;
@@ -351,8 +346,8 @@ public sealed class VoreSystem : EntitySystem
     /// true if the entity is inside any vore container
     /// </returns>
     private bool IsInVoreContainer(EntityUid uid){
-        if(TryComp<VoreComponent>(uid, out var comp))
-            return;
+        if(!TryComp<VoreComponent>(uid, out var comp))
+            return false;
         return _containerSystem.TryGetContainingContainer(uid, out var container) &&
            container.ID == comp.ContainerId;
     }
