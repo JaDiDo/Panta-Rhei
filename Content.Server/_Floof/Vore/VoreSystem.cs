@@ -41,8 +41,6 @@ public sealed class VoreSystem : EntitySystem
     [Dependency] private readonly SharedSuitSensorSystem _suitSensorSystem = default!;
     [Dependency] private readonly IConfigurationManager _cfg = default!;
     [Dependency] private readonly IPlayerManager _playerManager = default!;
-    
-    [Dependency] private readonly DigestSystem _digestSystem = default!;
 
     public static readonly ProtoId<ConsentTogglePrototype> isPred = "PredVore";
     public static readonly ProtoId<ConsentTogglePrototype> isPrey = "PreyVore";
@@ -116,9 +114,7 @@ public sealed class VoreSystem : EntitySystem
         
         /* in case prey is inside a container immediately release them when they turn off prey consent
         works as an emergency leave for the prey*/
-        if (!hasPrey &&
-        TryComp<VoreComponent>(uid, out var comp) &&
-        IsInVoreContainer(uid, comp) &&
+        if (!hasPrey && IsInVoreContainer(uid) &&
         _containerSystem.TryGetContainingContainer(uid, out var container)){
             _containerSystem.Remove(uid, container);
         }
@@ -154,7 +150,7 @@ public sealed class VoreSystem : EntitySystem
             return;
 
         BuildVoreContainerVerbs(uid, comp, args);
-        _digestSystem.BuildDigestVerbs(uid, comp, args);
+        EntitySystem.Get<DigestSystem>().BuildDigestVerbs(uid, comp, args);
     }
 
     /// <summary>
@@ -177,12 +173,8 @@ public sealed class VoreSystem : EntitySystem
             return;
         }
 
-        // only when reachable & interactable
-        if (!args.CanInteract || !args.CanAccess)
-            return;
-
         // 1. devour (pred → prey)
-        if (IsDevourable(user, target, comp)){
+        if (IsDevourable(user, target)){
             args.Verbs.Add(new Verb
             {
                 Text = "Devour",
@@ -191,7 +183,7 @@ public sealed class VoreSystem : EntitySystem
             });
         }
         // 2. insert self (prey → pred)
-        if (IsDevourable(target, user, comp)){
+        if (IsDevourable(target, user)){
                 args.Verbs.Add(new Verb
                 {
                     Text = "Insert Self",
@@ -209,7 +201,7 @@ public sealed class VoreSystem : EntitySystem
             carried  = pulling;
         
         if (carried != null && carried is EntityUid prey && prey != target){
-            if (IsDevourable(target, prey, comp)){
+            if (IsDevourable(target, prey)){
                 args.Verbs.Add(new Verb
                 {
                     Text = $"Insert {Name(prey)}",
@@ -280,7 +272,7 @@ public sealed class VoreSystem : EntitySystem
         
         /*make the prey immune to space+temp+breathing to avoid consent concerns from outside influence
         gets removed after escaping or being forcefully ejected by pred*/
-        ApplyStomachImmunities(prey, comp);
+        ApplyStomachImmunities(prey);
     }
 
     /// <summary>
@@ -392,9 +384,7 @@ public sealed class VoreSystem : EntitySystem
     private void OnBeforeDamageChanged(EntityUid uid, VoreImmunityTrackerComponent comp, ref BeforeDamageChangedEvent args){
         /*double check making sure they are inside the container
         should prevent possible exploitation of the system*/
-        if (!TryComp<VoreComponent>(uid, out var vore))
-            return;
-        if (!IsInVoreContainer(uid, vore))
+        if (!IsInVoreContainer(uid))
             return;
         args.Cancelled = true;
     }
@@ -403,10 +393,10 @@ public sealed class VoreSystem : EntitySystem
     /// the prey needs to have certain components such as pressure immunity
     /// for consent purposes -> having others avoid stumbling on scenarios
     /// </summary>
-    private void ApplyStomachImmunities(EntityUid prey, VoreComponent comp){
+    private void ApplyStomachImmunities(EntityUid prey){
         /*double check making sure they are inside the container
         should prevent possible exploitation of the system*/
-        if (!IsInVoreContainer(prey, comp))
+        if (!IsInVoreContainer(prey))
            return;
 
         var tracker = EnsureComp<VoreImmunityTrackerComponent>(prey);
@@ -443,7 +433,7 @@ public sealed class VoreSystem : EntitySystem
         if (!TryComp<VoreImmunityTrackerComponent>(prey, out var tracker))
             return;
         // if still in a container skip alltogether for example release from multi vore
-        if (TryComp<VoreComponent>(prey, out var comp) && IsInVoreContainer(prey, comp))
+        if (IsInVoreContainer(prey))
             return;
 
         if (tracker.AddedPressure)
@@ -465,14 +455,14 @@ public sealed class VoreSystem : EntitySystem
     /// <returns>
     /// true if the entity is allowed to be eaten
     /// </returns>
-    private bool IsDevourable(EntityUid user, EntityUid target, VoreComponent comp){
+    private bool IsDevourable(EntityUid user, EntityUid target){
         if (user == target)
             return false;
         if (!_playerManager.TryGetSessionByEntity(user, out _) || !_playerManager.TryGetSessionByEntity(target, out _))
             return false;
         if (!HasComp<BodyComponent>(user) || !HasComp<BodyComponent>(target))
             return false;
-        if (!IsValidContainment(user, target, comp))
+        if (!IsValidContainment(user, target))
             return false;
         if (!_consentSystem.HasConsent(user, isPred) || !_consentSystem.HasConsent(target, isPrey))
             return false;
@@ -488,7 +478,9 @@ public sealed class VoreSystem : EntitySystem
     /// <returns>
     /// true if the entity is inside any vore container
     /// </returns>
-    private bool IsInVoreContainer(EntityUid uid, VoreComponent comp){
+    private bool IsInVoreContainer(EntityUid uid){
+        if (!TryComp<VoreComponent>(uid, out var comp))
+            return false;
         return _containerSystem.TryGetContainingContainer(uid, out var container) &&
            container.ID == comp.ContainerId;
     }
@@ -499,9 +491,9 @@ public sealed class VoreSystem : EntitySystem
     /// <returns>
     /// false if only one is in a vore container or if both are inside another container
     /// </returns>
-    private bool IsValidContainment(EntityUid user, EntityUid target, VoreComponent comp){
-        var userInVore = IsInVoreContainer(user, comp);
-        var targetInVore = IsInVoreContainer(target, comp);
+    private bool IsValidContainment(EntityUid user, EntityUid target){
+        var userInVore = IsInVoreContainer(user);
+        var targetInVore = IsInVoreContainer(target);
 
         // one in vore, one not → invalid
         if (userInVore != targetInVore)
