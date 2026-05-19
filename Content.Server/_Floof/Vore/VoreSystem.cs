@@ -56,12 +56,10 @@ public sealed class VoreSystem : EntitySystem
     }
 
     /// <summary>
-    /// To get the most recent values for consent and current container
+    /// To get the most recent values of consent for the verbs
     /// </summary>
     public override void Update(float frameTime){
         base.Update(frameTime);
-
-        // processing of consent updates
         foreach (var uid in _pendingConsentUpdates){
             if (!HasComp<ConsentComponent>(uid))
                 continue;
@@ -99,9 +97,7 @@ public sealed class VoreSystem : EntitySystem
         
         /* in case prey is inside a container immediately release them when they turn off prey consent
         works as an emergency leave for the prey*/
-        if (!hasPrey &&
-        TryComp<VoreComponent>(uid, out var comp) &&
-        IsInVoreContainer(uid, comp) &&
+        if (!hasPrey && IsInVoreContainer(uid) &&
         _containerSystem.TryGetContainingContainer(uid, out var container)){
             _containerSystem.Remove(uid, container);
         }
@@ -290,8 +286,8 @@ public sealed class VoreSystem : EntitySystem
     }
 
     /// <summary>
-    /// for when the pred removes the prey from their container
-    /// will remove the buffs such as space immunity for the target
+    /// only to handle the release of prey
+    /// immunities will be removed inside the devouredsystem
     /// </summary>
     private void TryReleasePrey(EntityUid pred, VoreComponent comp){
         var container = _containerSystem.EnsureContainer<Container>(pred, comp.ContainerId);
@@ -354,7 +350,9 @@ public sealed class VoreSystem : EntitySystem
     /// <returns>
     /// true if the entity is inside any vore container
     /// </returns>
-    private bool IsInVoreContainer(EntityUid uid, VoreComponent comp){
+    private bool IsInVoreContainer(EntityUid uid){
+        if(TryComp<VoreComponent>(uid, out var comp))
+            return;
         return _containerSystem.TryGetContainingContainer(uid, out var container) &&
            container.ID == comp.ContainerId;
     }
@@ -365,9 +363,9 @@ public sealed class VoreSystem : EntitySystem
     /// <returns>
     /// false if only one is in a vore container or if both are inside another container
     /// </returns>
-    private bool IsValidContainment(EntityUid user, EntityUid target, VoreComponent comp){
-        var userInVore = IsInVoreContainer(user, comp);
-        var targetInVore = IsInVoreContainer(target, comp);
+    private bool IsValidContainment(EntityUid user, EntityUid target){
+        var userInVore = IsInVoreContainer(user);
+        var targetInVore = IsInVoreContainer(target);
 
         // one in vore, one not → invalid
         if (userInVore != targetInVore)

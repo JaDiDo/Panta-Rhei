@@ -14,6 +14,10 @@ using Robust.Shared.Containers;
 using Content.Shared.Flash.Components;
 using Content.Shared.Damage.Systems;
 using Content.Shared.Popups;
+using Content.Shared.Verbs;
+using Content.Shared.Movement.Events;
+using Content.Shared.Movement.Components;
+using Content.Shared.Movement;
 namespace Content.Server._Floof.Vore;
 
 public sealed class VoreImmunitySystem : EntitySystem
@@ -30,16 +34,10 @@ public sealed class VoreImmunitySystem : EntitySystem
         SubscribeLocalEvent<VoreComponent, EntRemovedFromContainerMessage>(OnPreyRemovedFromContainer);
         
         SubscribeLocalEvent<DevouredComponent, ComponentStartup>(OnStartup);
+        SubscribeLocalEvent<DevouredComponent, GetVerbsEvent<Verb>>(OnGetVerbs);
         SubscribeLocalEvent<DevouredComponent, MobStateChangedEvent>(OnPreyMobStateChanged);
         SubscribeLocalEvent<DevouredComponent, BeforeDamageChangedEvent>(OnBeforeDamageChanged);
-    }
-/*
-    public void QueuePreyForImmunityRemoval(EntityUid prey){
-        _pendingImmunityUpdates.Add(prey);
-    }
-*/
-    private void OnStartup(EntityUid uid, DevouredComponent comp, ComponentStartup args){
-        ApplyStomachImmunities(uid);
+        SubscribeLocalEvent<DevouredComponent, MoveInputEvent>(OnRelayMovement);        
     }
 
     public override void Update(float frameTime){
@@ -57,9 +55,36 @@ public sealed class VoreImmunitySystem : EntitySystem
     /// responsible for removing components and immunities
     /// </summary>
     private void OnPreyRemovedFromContainer(EntityUid uid, VoreComponent comp, EntRemovedFromContainerMessage args){
-        if (TryComp<DevouredComponent>(args.Entity, out _)){
+        if (TryComp<DevouredComponent>(args.Entity, out _))
             _pendingImmunityUpdates.Add(args.Entity);
-        }
+    }
+
+    private void OnStartup(EntityUid uid, DevouredComponent comp, ComponentStartup args){
+        ApplyStomachImmunities(uid);
+    }
+
+//the prey should only see the verb on themselves or the pred
+    //TODO TESTING IN REGARDS TO THE VERB SHOWING UP PROPERLY
+    private void OnGetVerbs(EntityUid uid, DevouredComponent comp, GetVerbsEvent<Verb> args){
+        if (!_containerSystem.TryGetContainingContainer(uid, out var container))
+            return;
+        var prey = uid;
+        var pred = container.Owner;
+        
+        if (args.User != prey  && args.User != pred)
+            return;
+
+        args.Verbs.Add(new Verb
+        {
+            Text = "Struggle Free",
+            Act = () => 
+            {
+                _popupSystem.PopupEntity("You struggle free!", prey, prey);
+                _containerSystem.Remove(uid, container);
+                _popupSystem.PopupEntity("Your prey escaped!", pred, pred);
+            }
+        });
+
     }
 
     /// <summary>
@@ -87,6 +112,16 @@ public sealed class VoreImmunitySystem : EntitySystem
         args.Cancelled = true;
     }
 
+
+    /// <summary>
+    /// removes the ability to escape by moving when inside a vore container in order to prevent accidentally escapes 
+    /// </summary>
+    private void OnRelayMovement(EntityUid uid, DevouredComponent  comp, ref MoveInputEvent args){
+        if (!IsInVoreContainer(uid))
+            return;
+        args.Entity.Comp.HeldMoveButtons = default;
+    }
+
     /// <summary>
     /// checks if an entity is inside a vore container
     /// </summary>
@@ -100,7 +135,7 @@ public sealed class VoreImmunitySystem : EntitySystem
                container.ID == comp.ContainerId;
     }
 
-        /// <summary>
+    /// <summary>
     /// the prey needs to have certain components such as pressure immunity
     /// for consent purposes -> having others avoid stumbling on scenarios
     /// </summary>
