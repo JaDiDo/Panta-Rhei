@@ -80,8 +80,8 @@ public sealed class VoreImmunitySystem : EntitySystem
             Act = () => 
             {
                 _popupSystem.PopupEntity("You struggle free!", prey, prey);
-                _containerSystem.Remove(uid, container);
                 _popupSystem.PopupEntity("Your prey escaped!", pred, pred);
+                _containerSystem.Remove(uid, container);
             }
         });
 

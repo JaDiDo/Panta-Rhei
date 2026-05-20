@@ -131,8 +131,7 @@ public sealed class VoreSystem : EntitySystem
             return;
 
         BuildVoreContainerVerbs(uid, comp, args);
-        var digestSystem = EntitySystem.Get<DigestSystem>();
-        digestSystem.BuildDigestVerbs(uid, comp, args);
+        EntityManager.System<DigestSystem>().BuildDigestVerbs(uid, comp, args);
     }
 
     /// <summary>
