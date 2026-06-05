@@ -26,3 +26,8 @@ public sealed partial class OnVoreDoAfter : SimpleDoAfterEvent{
         MaxPrey = maxPrey;
     }
 }
+[Serializable, NetSerializable]
+public enum VoreUiKey : byte
+{
+    Key
+}

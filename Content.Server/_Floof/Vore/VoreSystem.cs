@@ -1,4 +1,5 @@
 using Robust.Shared.GameObjects;
+using Robust.Server.GameObjects;
 using Robust.Shared.Prototypes;
 using Robust.Shared.Serialization;
 using Robust.Shared.Containers;
@@ -17,6 +18,8 @@ using Content.Shared._DV.Carrying;
 using Robust.Server.Player;
 using Content.Shared.Mobs.Systems;
 using Content.Shared.Gibbing;
+using Content.Shared.UserInterface;
+
 namespace Content.Server._Floof.Vore;
 
 public sealed class VoreSystem : EntitySystem
@@ -29,7 +32,8 @@ public sealed class VoreSystem : EntitySystem
     [Dependency] private readonly CarryingSystem _carryingSystem = default!;
     [Dependency] private readonly IPlayerManager _playerManager = default!;
     [Dependency] private readonly MobStateSystem _mobStateSystem = default!;
-
+    [Dependency] private readonly UserInterfaceSystem _uiSystem = default!;
+    
     public static readonly ProtoId<ConsentTogglePrototype> isPred = "PredVore";
     public static readonly ProtoId<ConsentTogglePrototype> isPrey = "PreyVore";
 
@@ -45,6 +49,10 @@ public sealed class VoreSystem : EntitySystem
         SubscribeLocalEvent<VoreComponent, BeingGibbedEvent>(OnGibbedRemoveContent);
         SubscribeLocalEvent<VoreComponent, DestructionEventArgs>(OnDestroyedRemoveContent);
         SubscribeLocalEvent<VoreComponent, PolymorphedEvent>(OnPolymorphedTransferContent);
+        Subs.BuiEvents<VoreComponent>(VoreUiKey.Key, subs =>
+        {
+            subs.Event<BoundUIOpenedEvent>(OnVoreSettingsOpened);
+        });
     }
 
     /// <summary>
@@ -98,9 +106,18 @@ public sealed class VoreSystem : EntitySystem
         //give the mob the needed component to be able to see the verbs
         if (hasPred || hasPrey){
             EnsureComp<VoreComponent>(uid);
+
+            var uiComp = EnsureComp<ActivatableUIComponent>(uid);
+            uiComp.Key = VoreUiKey.Key;
+            uiComp.VerbOnly = true;
+            uiComp.RequiresComplex = false;
+            uiComp.VerbText = "Vore Settings";
+            uiComp.BlockSpectators = false;
+            Dirty(uid, uiComp);
         }
         else{
             RemComp<VoreComponent>(uid);
+            RemComp<ActivatableUIComponent>(uid);
         }
 
         //TODO component for digest
@@ -119,29 +136,42 @@ public sealed class VoreSystem : EntitySystem
         if (!args.CanInteract || !args.CanAccess)
             return;
 
-        BuildVoreContainerVerbs(uid, comp, args);
-        //TODO LATER ADD VERB CONSTRUCTORS FOR EXAMPLE DIGEST TO AVOID DUPLICATE SUBSCRIPTION TO GETVERBS
+        var user = args.User;
+        var target = args.Target;
+        if (user == target){
+            BuildVoreSelfInteractVerbs(user, args);
+        }
+        else{
+            BuildVoreContainerVerbs(user, target, args);
+            //TODO LATER ADD VERB CONSTRUCTORS FOR EXAMPLE DIGEST TO AVOID DUPLICATE SUBSCRIPTION TO GETVERBS
+        }
+    }
+
+    /// <summary>
+    /// self inspection verbs such as removing prey and opening vore settings
+    /// </summary>
+    private void BuildVoreSelfInteractVerbs(EntityUid user, GetVerbsEvent<Verb> args){
+        if (TryComp<VoreComponent>(user, out var comp)){
+            args.Verbs.Add(new Verb
+            {
+                Text = "Vore Settings",
+                Act = () => OpenVoreSettingsUI(user)
+            });
+            var container = _containerSystem.EnsureContainer<Container>(user, comp.ContainerId);
+            if (container.ContainedEntities.Count > 0){
+                args.Verbs.Add(new Verb
+                {
+                    Text = "Release all prey",
+                    Act = () => TryReleasePrey(user, comp)
+                });
+            }
+        }
     }
 
     /// <summary>
     /// handles the verbs that control the container such as inserting/removing
     /// </summary>
-    private void BuildVoreContainerVerbs(EntityUid uid, VoreComponent comp, GetVerbsEvent<Verb> args){
-        var user = args.User;
-        var target = args.Target;
-        // no self activation, only there to remove your own prey and not have other intervene or have others see that you have prey
-        if (user == target){
-            var container = _containerSystem.EnsureContainer<Container>(target, comp.ContainerId);
-            if (container.ContainedEntities.Count > 0){
-                args.Verbs.Add(new Verb
-                {
-                    Text = "Release all prey",
-                    Act = () => TryReleasePrey(target, comp)
-                });
-            }
-            return;
-        }
-        
+    private void BuildVoreContainerVerbs(EntityUid user, EntityUid target, GetVerbsEvent<Verb> args){
         // 1. devour (pred → prey)
         if (IsDevourable(user, target)){
             args.Verbs.Add(new Verb
@@ -158,6 +188,32 @@ public sealed class VoreSystem : EntitySystem
                     Act = () => TryVore(target, user)
                 });
         }
+    }
+
+    private void OpenVoreSettingsUI(EntityUid user)
+    {
+        _uiSystem.OpenUi(user, VoreUiKey.Key, user);
+    }
+
+    private void OnVoreSettingsOpened(EntityUid uid, VoreComponent comp, BoundUIOpenedEvent args)
+    {
+        UpdateVoreSettingsState(uid, comp);
+    }
+
+    private void UpdateVoreSettingsState(EntityUid uid, VoreComponent comp)
+    {
+        var hasPred = _consentSystem.HasConsent(uid, isPred);
+        var hasPrey = _consentSystem.HasConsent(uid, isPrey);
+        var currentPreyCount = 0;
+        var container = _containerSystem.EnsureContainer<Container>(uid, comp.ContainerId);
+
+        foreach (var entity in container.ContainedEntities)
+        {
+            if (HasComp<BodyComponent>(entity))
+                currentPreyCount++;
+        }
+
+        _uiSystem.SetUiState(uid, VoreUiKey.Key, new VoreSettingsBoundUserInterfaceState(hasPred, hasPrey, currentPreyCount));
     }
 
 
