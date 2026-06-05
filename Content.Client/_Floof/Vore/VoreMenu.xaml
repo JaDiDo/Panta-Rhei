@@ -1,0 +1,10 @@
+<DefaultWindow
+    xmlns="https://spacestation14.io"
+    Title="Vore Settings"
+    MinSize="320 160">
+    <BoxContainer Orientation="Vertical" SeparationOverride="8" Margin="10">
+        <Label Text="Lorem ipsum dolor sit amet" HorizontalAlignment="Left" />
+        <Label Text="Lorem ipsum dolor sit amet" HorizontalAlignment="Left" />
+        <Button Name="CloseButton" Text="Close" HorizontalAlignment="Center" />
+    </BoxContainer>
+</DefaultWindow>

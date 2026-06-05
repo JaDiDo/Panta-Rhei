@@ -18,7 +18,6 @@ using Content.Shared._DV.Carrying;
 using Robust.Server.Player;
 using Content.Shared.Mobs.Systems;
 using Content.Shared.Gibbing;
-using Content.Shared.UserInterface;
 
 namespace Content.Server._Floof.Vore;
 
@@ -49,10 +48,6 @@ public sealed class VoreSystem : EntitySystem
         SubscribeLocalEvent<VoreComponent, BeingGibbedEvent>(OnGibbedRemoveContent);
         SubscribeLocalEvent<VoreComponent, DestructionEventArgs>(OnDestroyedRemoveContent);
         SubscribeLocalEvent<VoreComponent, PolymorphedEvent>(OnPolymorphedTransferContent);
-        Subs.BuiEvents<VoreComponent>(VoreUiKey.Key, subs =>
-        {
-            subs.Event<BoundUIOpenedEvent>(OnVoreSettingsOpened);
-        });
     }
 
     /// <summary>
@@ -106,18 +101,9 @@ public sealed class VoreSystem : EntitySystem
         //give the mob the needed component to be able to see the verbs
         if (hasPred || hasPrey){
             EnsureComp<VoreComponent>(uid);
-
-            var uiComp = EnsureComp<ActivatableUIComponent>(uid);
-            uiComp.Key = VoreUiKey.Key;
-            uiComp.VerbOnly = true;
-            uiComp.RequiresComplex = false;
-            uiComp.VerbText = "Vore Settings";
-            uiComp.BlockSpectators = false;
-            Dirty(uid, uiComp);
         }
         else{
             RemComp<VoreComponent>(uid);
-            RemComp<ActivatableUIComponent>(uid);
         }
 
         //TODO component for digest
@@ -155,7 +141,7 @@ public sealed class VoreSystem : EntitySystem
             args.Verbs.Add(new Verb
             {
                 Text = "Vore Settings",
-                Act = () => OpenVoreSettingsUI(user)
+                Act = () => _uiSystem.OpenUi(user, VoreUiKey.Key, user)    
             });
             var container = _containerSystem.EnsureContainer<Container>(user, comp.ContainerId);
             if (container.ContainedEntities.Count > 0){
@@ -188,32 +174,6 @@ public sealed class VoreSystem : EntitySystem
                     Act = () => TryVore(target, user)
                 });
         }
-    }
-
-    private void OpenVoreSettingsUI(EntityUid user)
-    {
-        _uiSystem.OpenUi(user, VoreUiKey.Key, user);
-    }
-
-    private void OnVoreSettingsOpened(EntityUid uid, VoreComponent comp, BoundUIOpenedEvent args)
-    {
-        UpdateVoreSettingsState(uid, comp);
-    }
-
-    private void UpdateVoreSettingsState(EntityUid uid, VoreComponent comp)
-    {
-        var hasPred = _consentSystem.HasConsent(uid, isPred);
-        var hasPrey = _consentSystem.HasConsent(uid, isPrey);
-        var currentPreyCount = 0;
-        var container = _containerSystem.EnsureContainer<Container>(uid, comp.ContainerId);
-
-        foreach (var entity in container.ContainedEntities)
-        {
-            if (HasComp<BodyComponent>(entity))
-                currentPreyCount++;
-        }
-
-        _uiSystem.SetUiState(uid, VoreUiKey.Key, new VoreSettingsBoundUserInterfaceState(hasPred, hasPrey, currentPreyCount));
     }
 
 
