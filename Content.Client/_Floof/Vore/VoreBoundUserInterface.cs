@@ -20,7 +20,6 @@ public sealed class VoreBoundUserInterface : BoundUserInterface
         base.Open();
 
         _menu = this.CreateWindowCenteredRight<VoreMenu>();
-        _menu.SetEntity(Owner);
     }
 
     protected override void Dispose(bool disposing)

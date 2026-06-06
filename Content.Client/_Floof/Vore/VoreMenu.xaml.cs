@@ -6,22 +6,58 @@ using Robust.Client.UserInterface.Controls;
 using Robust.Client.UserInterface.XAML;
 using Robust.Client.UserInterface.CustomControls;
 using Robust.Shared.Utility;
-
+using Robust.Shared.Configuration;
+using Content.Shared._Floof.Vore;
 namespace Content.Client._Floof.Vore;
 
 [GenerateTypedNameReferences]
 public sealed partial class VoreMenu : DefaultWindow
 {
-    public EntityUid Owner { get; private set; }
+    [Dependency] private readonly IConfigurationManager _cfg = default!;
 
     public VoreMenu()
     {
+        IoCManager.InjectDependencies(this); 
         RobustXamlLoader.Load(this);
+        Load();
         CloseButton.OnPressed += _ => Close();
+        AllowPred.OnToggled += args => Save();
+        AllowPrey.OnToggled += args => Save();
+        Digest.OnToggled += args => Save();
+        AllowSound.OnToggled += args => Save();
+        ValueA.ValueChanged += args => Save();
+        ValueB.ValueChanged += args => Save();
+        ValueC.ValueChanged += args => Save();
+        DigestSpeed.ValueChanged += args => Save();
     }
 
-    public void SetEntity(EntityUid owner)
+    private void Save()
     {
-        Owner = owner;
+        _cfg.SetCVar(VoreCVars.VoreAllowPred, AllowPred.Pressed);
+        _cfg.SetCVar(VoreCVars.VoreAllowPrey, AllowPrey.Pressed);
+        _cfg.SetCVar(VoreCVars.VoreDigest, Digest.Pressed);
+        _cfg.SetCVar(VoreCVars.VoreAllowSound, AllowSound.Pressed);
+
+        _cfg.SetCVar(VoreCVars.VoreR, (int)ValueA.Value);
+        _cfg.SetCVar(VoreCVars.VoreG, (int)ValueB.Value);
+        _cfg.SetCVar(VoreCVars.VoreB, (int)ValueC.Value);
+
+        _cfg.SetCVar(VoreCVars.VoreDigestSpeed, (int)DigestSpeed.Value);
+        _cfg.SaveToFile();
+
+    }
+
+    private void Load()
+    {
+        AllowPred.Pressed = _cfg.GetCVar(VoreCVars.VoreAllowPred);
+        AllowPrey.Pressed = _cfg.GetCVar(VoreCVars.VoreAllowPrey);
+        Digest.Pressed = _cfg.GetCVar(VoreCVars.VoreDigest);
+        AllowSound.Pressed = _cfg.GetCVar(VoreCVars.VoreAllowSound);
+
+        ValueA.Value = _cfg.GetCVar(VoreCVars.VoreR);
+        ValueB.Value = _cfg.GetCVar(VoreCVars.VoreG);
+        ValueC.Value = _cfg.GetCVar(VoreCVars.VoreB);
+
+        DigestSpeed.Value = _cfg.GetCVar(VoreCVars.VoreDigestSpeed);
     }
 }

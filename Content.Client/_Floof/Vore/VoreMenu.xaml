@@ -17,13 +17,13 @@
         <BoxContainer Name="Customization" Orientation="Vertical" SeparationOverride="8">
             <BoxContainer Orientation="Horizontal" SeparationOverride="6">
                 <Label Text="Stomach rgb" VerticalAlignment="Center" />
-                <LineEdit  Name="ValueA" MinSize="40 0" />
-                <LineEdit  Name="ValueB" MinSize="40 0" />
-                <LineEdit  Name="ValueC" MinSize="40 0"/>
+                <SpinBox  Name="ValueA" MinSize="40 0" />
+                <SpinBox  Name="ValueB" MinSize="40 0" />
+                <SpinBox  Name="ValueC" MinSize="40 0"/>
             </BoxContainer>
             <BoxContainer Orientation="Horizontal" SeparationOverride="6">
                 <Label Text="Digestion speed" VerticalAlignment="Center" />
-                <LineEdit  Name="ValueD" MinSize="80 0"/>
+                <SpinBox Name="DigestSpeed"/>
             </BoxContainer>
         </BoxContainer>
         <BoxContainer Name="Options" Orientation="Vertical" SeparationOverride="6">
