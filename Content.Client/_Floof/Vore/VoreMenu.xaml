@@ -3,14 +3,31 @@
     Title="Vore Settings"
     MinSize="400 200">
     <TabContainer Name="MasterTabContainer">
-        <BoxContainer Name="Consent">
-            <Label Text="Alter changes such as Voretypes." />
+        <BoxContainer Name="Consent" Orientation="Vertical" SeparationOverride="8">
+            <BoxContainer Orientation="Vertical" SeparationOverride="6">
+                <Label Text="Pred / Prey Settings" />
+                <CheckBox Name="AllowPred" Text="Allow being a predator" />
+                <CheckBox Name="AllowPrey" Text="Allow being prey" />
+            </BoxContainer>
+            <BoxContainer Orientation="Vertical" SeparationOverride="6" Name="DigestBox">
+                <Label Text="Vore Types" />
+                <CheckBox Name="Digest" Text="Classic digestion" />
+            </BoxContainer>
         </BoxContainer>
-        <BoxContainer Name="Customization">
-            <Label Text="Changes such as inside changes" />
+        <BoxContainer Name="Customization" Orientation="Vertical" SeparationOverride="8">
+            <BoxContainer Orientation="Horizontal" SeparationOverride="6">
+                <Label Text="Stomach rgb" VerticalAlignment="Center" />
+                <LineEdit  Name="ValueA" MinSize="40 0" />
+                <LineEdit  Name="ValueB" MinSize="40 0" />
+                <LineEdit  Name="ValueC" MinSize="40 0"/>
+            </BoxContainer>
+            <BoxContainer Orientation="Horizontal" SeparationOverride="6">
+                <Label Text="Digestion speed" VerticalAlignment="Center" />
+                <LineEdit  Name="ValueD" MinSize="80 0"/>
+            </BoxContainer>
         </BoxContainer>
-        <BoxContainer Name="Options">
-            <Label Text="Gamplay changes dunno" />
+        <BoxContainer Name="Options" Orientation="Vertical" SeparationOverride="6">
+                <CheckBox Name="AllowSound" Text="Stomach sounds" />
         </BoxContainer>
     </TabContainer>
 </DefaultWindow>

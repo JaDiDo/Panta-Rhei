@@ -11,10 +11,10 @@ public sealed class VoreUserInterfaceSystem : EntitySystem
     public override void Initialize()
     {
         base.Initialize();
-        SubscribeLocalEvent<VoreComponent, ComponentStartup>(OnVoreStartup);
+        SubscribeLocalEvent<VoreComponent, ComponentInit>(OnVoreInit);
     }
 
-    private void OnVoreStartup(EntityUid uid, VoreComponent component, ComponentStartup args)
+    private void OnVoreInit(EntityUid uid, VoreComponent component, ComponentInit args)
     {
         var uiComp = EnsureComp<UserInterfaceComponent>(uid);
         _uiSystem.SetUi((uid, uiComp), VoreUiKey.Key, new InterfaceData("VoreBoundUserInterface"));
