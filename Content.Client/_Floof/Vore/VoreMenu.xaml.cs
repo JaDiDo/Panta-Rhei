@@ -50,22 +50,7 @@ public sealed partial class VoreMenu : DefaultWindow
         _cfg.SetCVar(VoreCVars.VoreDigestSpeed, (int)DigestSpeed.Value);
         _cfg.SaveToFile();
         */
-
-        var ev = new VoreSettingsEvent{
-            AllowPred = _cfg.GetCVar(VoreCVars.VoreAllowPred),
-            AllowPrey = _cfg.GetCVar(VoreCVars.VoreAllowPrey),
-            /* TODO work in progress
-            Digest = _cfg.GetCVar(VoreCVars.VoreDigest),
-            AllowSound = _cfg.GetCVar(VoreCVars.VoreAllowSound),
-
-            R = _cfg.GetCVar(VoreCVars.VoreR),
-            G = _cfg.GetCVar(VoreCVars.VoreG),
-            B = _cfg.GetCVar(VoreCVars.VoreB),
-            DigestSpeed = _cfg.GetCVar(VoreCVars.VoreDigestSpeed),
-            */
-        };
-
-        _entityManager.EntityNetManager.SendSystemNetworkMessage(ev);
+        SendSettings();
     }
 
     private void Load()
@@ -81,5 +66,18 @@ public sealed partial class VoreMenu : DefaultWindow
         ValueC.Value = _cfg.GetCVar(VoreCVars.VoreB);
         DigestSpeed.Value = _cfg.GetCVar(VoreCVars.VoreDigestSpeed);
         */
+        //TODO REMOVE AFTER FIX OF CVARS NOT LOADING PROPERLY
+        SendSettings();
+    }
+
+    private void SendSettings()
+    {
+        var ev = new VoreSettingsEvent
+        {
+            AllowPred = _cfg.GetCVar(VoreCVars.VoreAllowPred),
+            AllowPrey = _cfg.GetCVar(VoreCVars.VoreAllowPrey)
+        };
+
+        _entityManager.EntityNetManager.SendSystemNetworkMessage(ev);
     }
 }

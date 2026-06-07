@@ -42,7 +42,6 @@ public sealed class VoreSystem : EntitySystem
     {
         SubscribeLocalEvent<ConsentComponent, ComponentStartup>(OnConsentStartup);
         SubscribeLocalEvent<ConsentComponent, EntityConsentToggleUpdatedEvent>(OnConsentUpdated);
-        SubscribeNetworkEvent<VoreSettingsEvent>(OnVoreSettings);
         
         SubscribeLocalEvent<VoreComponent, GetVerbsEvent<Verb>>(OnGetVerbs);
         SubscribeLocalEvent<VoreComponent, OnVoreDoAfter>(OnVoreDoAfter);
@@ -82,20 +81,6 @@ public sealed class VoreSystem : EntitySystem
     /// </summary>
     private void OnConsentStartup(EntityUid uid, ConsentComponent comp, ComponentStartup args){
         _pendingConsentUpdates.Add(uid);
-    }
-
-    private void OnVoreSettings(VoreSettingsEvent ev, EntitySessionEventArgs args)
-    {
-        var uid = args.SenderSession.AttachedEntity;
-
-        if (uid == null)
-            return;
-
-        if (!TryComp<VoreComponent>(uid.Value, out var comp))
-            return;
-
-        comp.AllowPred = ev.AllowPred;
-        comp.AllowPrey = ev.AllowPrey;
     }
 
     /// <summary>
