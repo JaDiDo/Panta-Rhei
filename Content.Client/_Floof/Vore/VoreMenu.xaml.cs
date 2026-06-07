@@ -7,6 +7,7 @@ using Robust.Client.UserInterface.XAML;
 using Robust.Client.UserInterface.CustomControls;
 using Robust.Shared.Utility;
 using Robust.Shared.Configuration;
+using Robust.Shared.GameObjects;
 using Content.Shared._Floof.Vore;
 namespace Content.Client._Floof.Vore;
 
@@ -14,6 +15,7 @@ namespace Content.Client._Floof.Vore;
 public sealed partial class VoreMenu : DefaultWindow
 {
     [Dependency] private readonly IConfigurationManager _cfg = default!;
+    [Dependency] private readonly IEntityManager _entityManager = default!;
 
     public VoreMenu()
     {
@@ -23,18 +25,21 @@ public sealed partial class VoreMenu : DefaultWindow
         CloseButton.OnPressed += _ => Close();
         AllowPred.OnToggled += args => Save();
         AllowPrey.OnToggled += args => Save();
+        /* TODO work in progress
         Digest.OnToggled += args => Save();
         AllowSound.OnToggled += args => Save();
         ValueA.ValueChanged += args => Save();
         ValueB.ValueChanged += args => Save();
         ValueC.ValueChanged += args => Save();
         DigestSpeed.ValueChanged += args => Save();
+        */
     }
 
     private void Save()
     {
         _cfg.SetCVar(VoreCVars.VoreAllowPred, AllowPred.Pressed);
         _cfg.SetCVar(VoreCVars.VoreAllowPrey, AllowPrey.Pressed);
+        /* TODO work in progress
         _cfg.SetCVar(VoreCVars.VoreDigest, Digest.Pressed);
         _cfg.SetCVar(VoreCVars.VoreAllowSound, AllowSound.Pressed);
 
@@ -44,20 +49,37 @@ public sealed partial class VoreMenu : DefaultWindow
 
         _cfg.SetCVar(VoreCVars.VoreDigestSpeed, (int)DigestSpeed.Value);
         _cfg.SaveToFile();
+        */
 
+        var ev = new VoreSettingsEvent{
+            AllowPred = _cfg.GetCVar(VoreCVars.VoreAllowPred),
+            AllowPrey = _cfg.GetCVar(VoreCVars.VoreAllowPrey),
+            /* TODO work in progress
+            Digest = _cfg.GetCVar(VoreCVars.VoreDigest),
+            AllowSound = _cfg.GetCVar(VoreCVars.VoreAllowSound),
+
+            R = _cfg.GetCVar(VoreCVars.VoreR),
+            G = _cfg.GetCVar(VoreCVars.VoreG),
+            B = _cfg.GetCVar(VoreCVars.VoreB),
+            DigestSpeed = _cfg.GetCVar(VoreCVars.VoreDigestSpeed),
+            */
+        };
+
+        _entityManager.EntityNetManager.SendSystemNetworkMessage(ev);
     }
 
     private void Load()
     {
         AllowPred.Pressed = _cfg.GetCVar(VoreCVars.VoreAllowPred);
         AllowPrey.Pressed = _cfg.GetCVar(VoreCVars.VoreAllowPrey);
+        /* TODO work in progress
         Digest.Pressed = _cfg.GetCVar(VoreCVars.VoreDigest);
         AllowSound.Pressed = _cfg.GetCVar(VoreCVars.VoreAllowSound);
 
         ValueA.Value = _cfg.GetCVar(VoreCVars.VoreR);
         ValueB.Value = _cfg.GetCVar(VoreCVars.VoreG);
         ValueC.Value = _cfg.GetCVar(VoreCVars.VoreB);
-
         DigestSpeed.Value = _cfg.GetCVar(VoreCVars.VoreDigestSpeed);
+        */
     }
 }

@@ -1,3 +1,5 @@
+namespace Content.Shared._Floof.Vore;
+
 [RegisterComponent]
 public sealed partial class DevouredComponent : Component
 {

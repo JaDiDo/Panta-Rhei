@@ -11,23 +11,23 @@
             </BoxContainer>
             <BoxContainer Orientation="Vertical" SeparationOverride="6" Name="DigestBox">
                 <Label Text="Vore Types" />
-                <CheckBox Name="Digest" Text="Classic digestion" />
+                <CheckBox Name="Digest" Text="Classic digestion (WIP)" />
             </BoxContainer>
         </BoxContainer>
         <BoxContainer Name="Customization" Orientation="Vertical" SeparationOverride="8">
             <BoxContainer Orientation="Horizontal" SeparationOverride="6">
-                <Label Text="Stomach rgb" VerticalAlignment="Center" />
+                <Label Text="Stomach rgb (WIP)" VerticalAlignment="Center" />
                 <SpinBox  Name="ValueA" MinSize="40 0" />
                 <SpinBox  Name="ValueB" MinSize="40 0" />
                 <SpinBox  Name="ValueC" MinSize="40 0"/>
             </BoxContainer>
             <BoxContainer Orientation="Horizontal" SeparationOverride="6">
-                <Label Text="Digestion speed" VerticalAlignment="Center" />
+                <Label Text="Digestion speed (WIP)" VerticalAlignment="Center" />
                 <SpinBox Name="DigestSpeed"/>
             </BoxContainer>
         </BoxContainer>
         <BoxContainer Name="Options" Orientation="Vertical" SeparationOverride="6">
-                <CheckBox Name="AllowSound" Text="Stomach sounds" />
+                <CheckBox Name="AllowSound" Text="Stomach sounds (WIP)" />
         </BoxContainer>
     </TabContainer>
 </DefaultWindow>

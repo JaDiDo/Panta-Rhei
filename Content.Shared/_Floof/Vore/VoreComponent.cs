@@ -13,6 +13,9 @@ public sealed partial class VoreComponent : Component
     //TODO later include customizable containers for different vore types
     [DataField("containerId")]
     public string ContainerId = "vore_container";
+
+    public bool AllowPred = false;
+    public bool AllowPrey = false;
 }
 [Serializable, NetSerializable]
 public sealed partial class OnVoreDoAfter : SimpleDoAfterEvent{

@@ -42,7 +42,8 @@ public sealed class VoreSystem : EntitySystem
     {
         SubscribeLocalEvent<ConsentComponent, ComponentStartup>(OnConsentStartup);
         SubscribeLocalEvent<ConsentComponent, EntityConsentToggleUpdatedEvent>(OnConsentUpdated);
-
+        SubscribeNetworkEvent<VoreSettingsEvent>(OnVoreSettings);
+        
         SubscribeLocalEvent<VoreComponent, GetVerbsEvent<Verb>>(OnGetVerbs);
         SubscribeLocalEvent<VoreComponent, OnVoreDoAfter>(OnVoreDoAfter);
         SubscribeLocalEvent<VoreComponent, BeingGibbedEvent>(OnGibbedRemoveContent);
@@ -81,6 +82,20 @@ public sealed class VoreSystem : EntitySystem
     /// </summary>
     private void OnConsentStartup(EntityUid uid, ConsentComponent comp, ComponentStartup args){
         _pendingConsentUpdates.Add(uid);
+    }
+
+    private void OnVoreSettings(VoreSettingsEvent ev, EntitySessionEventArgs args)
+    {
+        var uid = args.SenderSession.AttachedEntity;
+
+        if (uid == null)
+            return;
+
+        if (!TryComp<VoreComponent>(uid.Value, out var comp))
+            return;
+
+        comp.AllowPred = ev.AllowPred;
+        comp.AllowPrey = ev.AllowPrey;
     }
 
     /// <summary>
@@ -320,6 +335,8 @@ public sealed class VoreSystem : EntitySystem
             return false;
         if (!_consentSystem.HasConsent(user, isPred) || !_consentSystem.HasConsent(target, isPrey))
             return false;
+            //TODO REMOVE AFTER TESTING
+        Console.WriteLine(TryComp<VoreComponent>(user, out var userComp) && userComp.AllowPred);
         if (_mobStateSystem.IsDead(target) || _mobStateSystem.IsCritical(target))
             return false;
         
