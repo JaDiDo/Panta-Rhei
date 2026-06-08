@@ -16,3 +16,5 @@ public sealed class VoreSettingsEvent : EntityEventArgs
     public int DigestSpeed;
     */
 }
+[Serializable, NetSerializable]
+public sealed class OpenVoreMenuEvent : EntityEventArgs {}

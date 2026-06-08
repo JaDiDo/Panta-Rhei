@@ -48,8 +48,8 @@ public sealed partial class VoreMenu : DefaultWindow
         _cfg.SetCVar(VoreCVars.VoreB, (int)ValueC.Value);
 
         _cfg.SetCVar(VoreCVars.VoreDigestSpeed, (int)DigestSpeed.Value);
-        _cfg.SaveToFile();
         */
+        _cfg.SaveToFile();
         SendSettings();
     }
 
@@ -67,7 +67,6 @@ public sealed partial class VoreMenu : DefaultWindow
         DigestSpeed.Value = _cfg.GetCVar(VoreCVars.VoreDigestSpeed);
         */
         //TODO REMOVE AFTER FIX OF CVARS NOT LOADING PROPERLY
-        SendSettings();
     }
 
     private void SendSettings()

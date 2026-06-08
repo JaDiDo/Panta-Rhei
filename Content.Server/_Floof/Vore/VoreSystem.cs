@@ -31,7 +31,6 @@ public sealed class VoreSystem : EntitySystem
     [Dependency] private readonly CarryingSystem _carryingSystem = default!;
     [Dependency] private readonly IPlayerManager _playerManager = default!;
     [Dependency] private readonly MobStateSystem _mobStateSystem = default!;
-    [Dependency] private readonly UserInterfaceSystem _uiSystem = default!;
     
     public static readonly ProtoId<ConsentTogglePrototype> isPred = "PredVore";
     public static readonly ProtoId<ConsentTogglePrototype> isPrey = "PreyVore";
@@ -73,6 +72,8 @@ public sealed class VoreSystem : EntitySystem
         // only if the updated toggle is prey or pred
         if (args.ConsentToggleProtoId != isPred && args.ConsentToggleProtoId != isPrey)
             return;
+        //TODO INCLUDE IT IN SUMMARY: opens the menu the first time people activate vore
+        RaiseNetworkEvent(new OpenVoreMenuEvent(), user)  
         _pendingConsentUpdates.Add(uid);
     }
 
@@ -141,7 +142,7 @@ public sealed class VoreSystem : EntitySystem
             args.Verbs.Add(new Verb
             {
                 Text = "Vore Settings",
-                Act = () => _uiSystem.OpenUi(user, VoreUiKey.Key, user)    
+                Act = () => RaiseNetworkEvent(new OpenVoreMenuEvent(), user)   
             });
             var container = _containerSystem.EnsureContainer<Container>(user, comp.ContainerId);
             if (container.ContainedEntities.Count > 0){
