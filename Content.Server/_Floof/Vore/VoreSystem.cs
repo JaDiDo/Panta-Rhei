@@ -119,29 +119,43 @@ public sealed class VoreSystem : EntitySystem
         if (!args.CanInteract || !args.CanAccess)
             return;
 
-        BuildVoreContainerVerbs(uid, comp, args);
+        var user = args.User;
+        var target = args.Target;
+        if (user == target){
+            BuildVoreSelfInteractVerbs(user, args);
+        }
+        else{
+            BuildVoreContainerVerbs(user, target, args);
+            //TODO LATER ADD VERB CONSTRUCTORS FOR EXAMPLE DIGEST TO AVOID DUPLICATE SUBSCRIPTION TO GETVERBS
+        }
+
         //TODO LATER ADD VERB CONSTRUCTORS FOR EXAMPLE DIGEST TO AVOID DUPLICATE SUBSCRIPTION TO GETVERBS
     }
 
     /// <summary>
-    /// handles the verbs that control the container such as inserting/removing
+    /// self inspection verbs such as removing prey and opening vore settings
     /// </summary>
-    private void BuildVoreContainerVerbs(EntityUid uid, VoreComponent comp, GetVerbsEvent<Verb> args){
-        var user = args.User;
-        var target = args.Target;
-        // no self activation, only there to remove your own prey and not have other intervene or have others see that you have prey
-        if (user == target){
-            var container = _containerSystem.EnsureContainer<Container>(target, comp.ContainerId);
+    private void BuildVoreSelfInteractVerbs(EntityUid user, GetVerbsEvent<Verb> args){
+        if (TryComp<VoreComponent>(user, out var comp)){
+            args.Verbs.Add(new Verb
+            {
+                Text = "Vore Settings",
+                Act = () => RaiseNetworkEvent(new OpenVoreMenuEvent(), user)   
+            });
+            var container = _containerSystem.EnsureContainer<Container>(user, comp.ContainerId);
             if (container.ContainedEntities.Count > 0){
                 args.Verbs.Add(new Verb
                 {
                     Text = "Release all prey",
-                    Act = () => TryReleasePrey(target, comp)
+                    Act = () => TryReleasePrey(user, comp)
                 });
             }
-            return;
         }
-        
+    }
+    /// <summary>
+    /// handles the verbs that control the container such as inserting/removing
+    /// </summary>
+    private void BuildVoreContainerVerbs(EntityUid user,  EntityUid target, GetVerbsEvent<Verb> args){
         // 1. devour (pred → prey)
         if (IsDevourable(user, target)){
             args.Verbs.Add(new Verb
