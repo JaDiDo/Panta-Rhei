@@ -9,38 +9,102 @@ using Robust.Shared.Utility;
 using Robust.Shared.Configuration;
 using Robust.Shared.GameObjects;
 using Content.Shared._Floof.Vore;
+using System.IO;
+using YamlDotNet.RepresentationModel;
+using Robust.Shared.Serialization.Markdown;
+
+using Robust.Shared.IoC; 
+using Robust.Shared.Log; 
+using Robust.Shared.Serialization.Markdown.Mapping; 
+using Robust.Shared.Serialization.Markdown.Value;
 namespace Content.Client._Floof.Vore;
 
 [GenerateTypedNameReferences]
 public sealed partial class VoreMenu : DefaultWindow
 {
-    [Dependency] private readonly IConfigurationManager _cfg = default!;
+    [Dependency] private readonly IFileDialogManager _dialogMan = default!;
     [Dependency] private readonly IEntityManager _entityManager = default!;
+    
+    private readonly ISawmill _sawmill;
 
     public VoreMenu()
     {
         IoCManager.InjectDependencies(this); 
         RobustXamlLoader.Load(this);
+        _sawmill = Logger.GetSawmill("vore.menu");
+
         CloseButton.OnPressed += _ => Close();
-        SaveVoreSettings.OnPressed += _ =>{
-            SaveVoreSettings.Disabled = true;
-            Save();
-            SendSettings();
-        };
+        SaveVoreSettings.OnPressed += _ => Save();
+        ResetVoreSettings.OnPressed += _ => Reset();
+        ImportVoreSettings.OnPressed += _ => Import();
+        ExportVoreSettings.OnPressed += _ => Export();
+        
+        AllowSound.OnToggled  += args => UnsavedChanges();
     }
 
     private void UnsavedChanges(){
+        SaveVoreSettings.Disabled = false;
     }
 
     private void Save(){
+        var ev = new VoreSettingsEvent{
+            AllowSound = AllowSound.Pressed
+        };
+        _entityManager.EntityNetManager.SendSystemNetworkMessage(ev);
+
+        SaveVoreSettings.Disabled = true;
     }
 
-    private void Import(){
+    private void Reset(){
+        AllowSound.Pressed = false;
+        UnsavedChanges();
+    }
+
+    private async void Import(){
+        if (await _dialogMan.OpenFile(new FileDialogFilters(new FileDialogFilters.Group("yml"))) is not {} file)
+            return;
+        try{
+            using var reader = new StreamReader(file, EncodingHelpers.UTF8);
+            var yamlStream = new YamlStream();
+            yamlStream.Load(reader);
+            var root = yamlStream.Documents[0].RootNode;
+            
+            if (root.ToDataNode() is MappingDataNode mappingNode){
+                if (mappingNode.TryGet("allowSound", out var soundNode) && soundNode is ValueDataNode valueNode){
+                    if (bool.TryParse(valueNode.Value, out var allowSoundValue)){
+                        AllowSound.Pressed = allowSoundValue;
+                    }
+                }
+            }
+
+            UnsavedChanges();
+        }
+        catch (Exception e){
+            _sawmill.Error($"Error importing settings: {e}");
+        }
     }
     
-    private void Export(){
-    }
+    private async void Export(){
+        if (await _dialogMan.SaveFile(new FileDialogFilters(new FileDialogFilters.Group("yml"))) is not {} file)
+            return;
 
-    private void SendSettings(){
+        try{
+            var mappingNode = new MappingDataNode();
+            
+            var soundValueStr = AllowSound.Pressed.ToString().ToLowerInvariant();
+            mappingNode.Add("allowSound", new ValueDataNode(soundValueStr));
+            await using var writer = new StreamWriter(file.fileStream);
+            mappingNode.Write(writer);
+            
+            _sawmill.Info("Successfully exported settings.");
+        }
+        catch (Exception e)
+        {
+            _sawmill.Error($"Error exporting settings: {e}");
+        }
+        finally
+        {
+            await file.fileStream.DisposeAsync();
+        }
     }
 }

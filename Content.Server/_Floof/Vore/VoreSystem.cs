@@ -40,6 +40,8 @@ public sealed class VoreSystem : EntitySystem
         SubscribeLocalEvent<ConsentComponent, ComponentStartup>(OnConsentStartup);
         SubscribeLocalEvent<ConsentComponent, EntityConsentToggleUpdatedEvent>(OnConsentUpdated);
 
+        SubscribeNetworkEvent<VoreSettingsEvent>(OnVoreSettingsChanged);
+
         SubscribeLocalEvent<VoreComponent, GetVerbsEvent<Verb>>(OnGetVerbs);
         SubscribeLocalEvent<VoreComponent, OnVoreDoAfter>(OnVoreDoAfter);
         SubscribeLocalEvent<VoreComponent, BeingGibbedEvent>(OnGibbedRemoveContent);
@@ -104,6 +106,18 @@ public sealed class VoreSystem : EntitySystem
         }
 
         //TODO component for digest
+    }
+
+    private void OnVoreSettingsChanged(VoreSettingsEvent ev, EntitySessionEventArgs args){
+        var uid = args.SenderSession.AttachedEntity;
+
+        if (uid == null)
+            return;
+
+        if (!TryComp<VoreComponent>(uid.Value, out var comp))
+            return;
+
+        comp.AllowSound = ev.AllowSound;
     }
 
     /// <summary>

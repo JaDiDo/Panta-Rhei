@@ -5,9 +5,7 @@ namespace Content.Shared._Floof.Vore;
 [Serializable, NetSerializable]
 public sealed class VoreSettingsEvent : EntityEventArgs
 {
-    /*
-    TODO GET STUFF IN HERE
-    */
+    public bool AllowSound { get; set; }
 }
 [Serializable, NetSerializable]
 public sealed class OpenVoreMenuEvent : EntityEventArgs {}
