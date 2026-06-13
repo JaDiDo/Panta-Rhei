@@ -19,6 +19,9 @@ using Content.Shared.Movement.Events;
 using Content.Shared.Movement.Components;
 using Content.Shared.Movement;
 using Content.Server.Radiation.Components;
+using Robust.Shared.Audio.Systems;
+using Robust.Server.Player;
+using Robust.Shared.Audio;
 namespace Content.Server._Floof.Vore;
 
 public sealed class VoreImmunitySystem : EntitySystem
@@ -27,6 +30,8 @@ public sealed class VoreImmunitySystem : EntitySystem
     [Dependency] private readonly MobStateSystem _mobStateSystem = default!;
     [Dependency] private readonly SharedSuitSensorSystem _suitSensorSystem = default!;
     [Dependency] private readonly SharedPopupSystem _popupSystem = default!;
+    [Dependency] private readonly SharedAudioSystem _audio = default!;
+    [Dependency] private readonly IPlayerManager _playerManager = default!;
     
     private readonly HashSet<EntityUid> _pendingImmunityUpdates = new();
 
@@ -35,6 +40,7 @@ public sealed class VoreImmunitySystem : EntitySystem
         SubscribeLocalEvent<VoreComponent, EntInsertedIntoContainerMessage>(OnPreyInsertedIntoContainer);
         SubscribeLocalEvent<VoreComponent, EntRemovedFromContainerMessage>(OnPreyRemovedFromContainer);
         
+        SubscribeLocalEvent<DevouredComponent, VoreSettingsEvent>(OnVoreSettingsChanged);
         SubscribeLocalEvent<DevouredComponent, ComponentStartup>(OnStartup);
         SubscribeLocalEvent<DevouredComponent, GetVerbsEvent<Verb>>(OnGetVerbs);
         SubscribeLocalEvent<DevouredComponent, MobStateChangedEvent>(OnPreyMobStateChanged);
@@ -51,20 +57,56 @@ public sealed class VoreImmunitySystem : EntitySystem
         _pendingImmunityUpdates.Clear();
     }
 
+    /// <summary>
+    /// responsible for giving the inital component to give immunites and starting sound loop
+    /// </summary>
     private void OnPreyInsertedIntoContainer(EntityUid uid, VoreComponent comp, EntInsertedIntoContainerMessage args){
         //double check making sure its a vore_container
         if (args.Container.ID != comp.ContainerId)
             return;
-        EnsureComp<DevouredComponent>(args.Entity);
+        var devouredComp = EnsureComp<DevouredComponent>(args.Entity);
+        if (TryComp<VoreComponent>(args.Entity, out var preyVoreComp))
+        {
+            Console.WriteLine(preyVoreComp.AllowSound);
+            
+            if (preyVoreComp.AllowSound && _playerManager.TryGetSessionByEntity(args.Entity, out var session))
+            {
+                devouredComp.Stream = _audio.PlayEntity(devouredComp.SoundBelly, session, args.Entity, AudioParams.Default.WithLoop(true))?.Entity;
+            }
+        }
     }
 
     /// <summary>
-    /// responsible for removing components and immunities
+    /// responsible for removing components and immunities and sound loop
     /// </summary>
     private void OnPreyRemovedFromContainer(EntityUid uid, VoreComponent comp, EntRemovedFromContainerMessage args){
-        if (TryComp<DevouredComponent>(args.Entity, out _))
-            _pendingImmunityUpdates.Add(args.Entity);
+        if (TryComp<DevouredComponent>(args.Entity, out var devouredComp))
+        {
+            if (devouredComp.Stream != null)
+            {
+                _audio.Stop(devouredComp.Stream.Value);
+                devouredComp.Stream = null;
+            }
+        }
+        _pendingImmunityUpdates.Add(args.Entity);
     }
+
+    /// <summary>
+    /// handling changes to component values if the client system sends changes
+    /// </summary>
+    private void OnVoreSettingsChanged(EntityUid uid, DevouredComponent comp, VoreSettingsEvent ev){
+        if (!ev.AllowSound){
+            if (comp.Stream != null){
+                _audio.Stop(comp.Stream.Value);
+                comp.Stream = null;
+            }
+            return;
+        }
+        if (ev.AllowSound&& comp.Stream == null && _playerManager.TryGetSessionByEntity(uid, out var session)){
+            comp.Stream = _audio.PlayEntity(comp.SoundBelly, session, uid, AudioParams.Default.WithLoop(true))?.Entity;
+        }
+    }
+
 
     private void OnStartup(EntityUid uid, DevouredComponent comp, ComponentStartup args){
         ApplyStomachImmunities(uid);
