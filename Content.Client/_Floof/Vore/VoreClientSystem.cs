@@ -12,9 +12,12 @@ public sealed class VoreClientSystem : EntitySystem
         SubscribeNetworkEvent<OpenVoreMenuEvent>(OnOpenMenu);
     }
 
+    /// <summary>
+    /// once the event from server has been received open the menu 
+    /// </summary>
     private void OnOpenMenu(OpenVoreMenuEvent ev)
     {
         var ui = _ui.GetUIController<VoreUIController>();
-        ui.ToggleMenu();
+        ui.OpenMenu();
     }
 }

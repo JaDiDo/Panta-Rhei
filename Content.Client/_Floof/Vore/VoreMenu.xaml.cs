@@ -50,6 +50,7 @@ public sealed partial class VoreMenu : DefaultWindow
         var ev = new VoreSettingsEvent{
             AllowSound = AllowSound.Pressed
         };
+        //deliver the changes to server to be handled by the voresettingsnetworksystem
         _entityManager.EntityNetManager.SendSystemNetworkMessage(ev);
 
         SaveVoreSettings.Disabled = true;
@@ -95,8 +96,6 @@ public sealed partial class VoreMenu : DefaultWindow
             mappingNode.Add("allowSound", new ValueDataNode(soundValueStr));
             await using var writer = new StreamWriter(file.fileStream);
             mappingNode.Write(writer);
-            
-            _sawmill.Info("Successfully exported settings.");
         }
         catch (Exception e)
         {

@@ -108,10 +108,9 @@ public sealed class VoreSystem : EntitySystem
     }
 
     /// <summary>
-    /// handling changes to component values if the client system sends changes
+    /// handling changes to component values the moment client sends changes through saving
     /// </summary>
     private void OnVoreSettingsChanged(EntityUid uid, VoreComponent comp, VoreSettingsEvent ev){
-        Console.WriteLine("test");
         comp.AllowSound = ev.AllowSound;
     }
 
@@ -161,6 +160,7 @@ public sealed class VoreSystem : EntitySystem
             }
         }
     }
+    
     /// <summary>
     /// handles the verbs that control the container such as inserting/removing
     /// </summary>

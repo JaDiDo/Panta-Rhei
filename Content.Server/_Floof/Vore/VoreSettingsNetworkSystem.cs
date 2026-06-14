@@ -8,6 +8,10 @@ public sealed class VoreSettingsNetworkSystem : EntitySystem
         SubscribeNetworkEvent<VoreSettingsEvent>(OnVoreSettingsChanged);
     }
 
+    /// <summary>
+    /// Turns the network event into a local one for the purpose of better 
+    /// seperation between pred and prey system
+    /// </summary>
     private void OnVoreSettingsChanged(VoreSettingsEvent ev, EntitySessionEventArgs args)
     {
         if (args.SenderSession?.AttachedEntity is not { } uid)

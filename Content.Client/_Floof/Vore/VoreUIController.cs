@@ -21,19 +21,15 @@ public sealed class VoreUIController : UIController, IOnStateChanged<GameplaySta
 
     public void OnStateExited(GameplayState state)
     {
-        // Dispose when leaving gameplay
         _menu?.Dispose();
         _menu = null;
     }
 
-    public void ToggleMenu()
+    public void OpenMenu()
     {
         if (_menu == null)
             return;
-
-        if (_menu.IsOpen)
-            _menu.Close();
-        else
+        if (!_menu.IsOpen)
             _menu.OpenCentered();
     }
 }

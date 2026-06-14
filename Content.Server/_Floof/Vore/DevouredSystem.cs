@@ -92,7 +92,7 @@ public sealed class VoreImmunitySystem : EntitySystem
     }
 
     /// <summary>
-    /// handling changes to component values if the client system sends changes
+    /// handling changes to component values if the client system sends changes while being in a container
     /// </summary>
     private void OnVoreSettingsChanged(EntityUid uid, DevouredComponent comp, VoreSettingsEvent ev){
         if (!ev.AllowSound){

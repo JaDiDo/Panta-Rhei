@@ -42,7 +42,9 @@
                 </BoxContainer>
             </BoxContainer>
             <BoxContainer Name="Options" Orientation="Vertical" SeparationOverride="6">
-                    <CheckBox Name="AllowSound" Text="Stomach sounds (WIP)" />
+                    <CheckBox 
+                        Name="AllowSound" 
+                        Text="Stomach sounds" />
             </BoxContainer>
         </TabContainer>
     </BoxContainer>
