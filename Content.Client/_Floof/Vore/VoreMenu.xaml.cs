@@ -25,6 +25,7 @@ public sealed partial class VoreMenu : DefaultWindow
     [Dependency] private readonly IFileDialogManager _dialogMan = default!;
     [Dependency] private readonly IEntityManager _entityManager = default!;
     
+    private ColorSelectorSliders _stomachColorSelector; 
     private readonly ISawmill _sawmill;
 
     public VoreMenu()
@@ -32,6 +33,15 @@ public sealed partial class VoreMenu : DefaultWindow
         IoCManager.InjectDependencies(this); 
         RobustXamlLoader.Load(this);
         _sawmill = Logger.GetSawmill("vore.menu");
+
+        _stomachColorSelector = new ColorSelectorSliders{
+            SelectorType = ColorSelectorSliders.ColorSelectorType.Rgb
+        };
+        _stomachColorSelector.OnColorChanged += _ =>{
+            var color = _stomachColorSelector.Color;
+            UnsavedChanges();
+        };
+        RgbStomachColorContainer.AddChild(_stomachColorSelector);
 
         CloseButton.OnPressed += _ => Close();
         SaveVoreSettings.OnPressed += _ => Save();

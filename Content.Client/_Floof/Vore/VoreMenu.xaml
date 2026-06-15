@@ -30,15 +30,22 @@
                 </BoxContainer>
             </BoxContainer>
             <BoxContainer Name="Customization" Orientation="Vertical" SeparationOverride="8">
-                <BoxContainer Orientation="Horizontal" SeparationOverride="6">
+                <BoxContainer Orientation="Vertical" SeparationOverride="6">
                     <Label Text="Stomach rgb (WIP)" VerticalAlignment="Center" />
-                    <SpinBox  Name="ValueA" MinSize="40 0" />
-                    <SpinBox  Name="ValueB" MinSize="40 0" />
-                    <SpinBox  Name="ValueC" MinSize="40 0"/>
+                    <BoxContainer 
+                        Name="RgbStomachColorContainer" 
+                        Visible="True" Orientation="Vertical" 
+                        HorizontalExpand="True">
+                    </BoxContainer>
                 </BoxContainer>
                 <BoxContainer Orientation="Horizontal" SeparationOverride="6">
                     <Label Text="Digestion speed (WIP)" VerticalAlignment="Center" />
-                    <SpinBox Name="DigestSpeed"/>
+                    <Slider 
+                        HorizontalExpand="True" 
+                        Name="DigestSpeed" 
+                        MinValue="0" 
+                        MaxValue="100" 
+                        Value="20" />
                 </BoxContainer>
             </BoxContainer>
             <BoxContainer Name="Options" Orientation="Vertical" SeparationOverride="6">
