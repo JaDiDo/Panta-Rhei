@@ -40,7 +40,8 @@ public sealed class VoreImmunitySystem : EntitySystem
         SubscribeLocalEvent<VoreComponent, EntInsertedIntoContainerMessage>(OnPreyInsertedIntoContainer);
         SubscribeLocalEvent<VoreComponent, EntRemovedFromContainerMessage>(OnPreyRemovedFromContainer);
         
-        SubscribeLocalEvent<DevouredComponent, VoreSettingsEvent>(OnVoreSettingsChanged);
+        SubscribeLocalEvent<PreyComponent, VoreSettingsEvent>(OnVoreSettingsChanged);
+        
         SubscribeLocalEvent<DevouredComponent, ComponentStartup>(OnStartup);
         SubscribeLocalEvent<DevouredComponent, GetVerbsEvent<Verb>>(OnGetVerbs);
         SubscribeLocalEvent<DevouredComponent, MobStateChangedEvent>(OnPreyMobStateChanged);
@@ -64,29 +65,19 @@ public sealed class VoreImmunitySystem : EntitySystem
         //double check making sure its a vore_container
         if (args.Container.ID != comp.ContainerId)
             return;
-        var devouredComp = EnsureComp<DevouredComponent>(args.Entity);
-        if (TryComp<VoreComponent>(args.Entity, out var preyVoreComp))
-        {
-            Console.WriteLine(preyVoreComp.AllowSound);
-            
-            if (preyVoreComp.AllowSound && _playerManager.TryGetSessionByEntity(args.Entity, out var session))
-            {
-                devouredComp.Stream = _audio.PlayEntity(devouredComp.SoundBelly, session, args.Entity, AudioParams.Default.WithLoop(true))?.Entity;
-            }
+        
+        if (TryComp<PreyComponent>(args.Entity, out var preyComp)){
+            StartStomachSound(args.Entity, preyComp);
         }
+        EnsureComp<DevouredComponent>(args.Entity);
     }
 
     /// <summary>
     /// responsible for removing components and immunities and sound loop
     /// </summary>
     private void OnPreyRemovedFromContainer(EntityUid uid, VoreComponent comp, EntRemovedFromContainerMessage args){
-        if (TryComp<DevouredComponent>(args.Entity, out var devouredComp))
-        {
-            if (devouredComp.Stream != null)
-            {
-                _audio.Stop(devouredComp.Stream.Value);
-                devouredComp.Stream = null;
-            }
+        if (TryComp<PreyComponent>(args.Entity, out var preyComp)){       
+            StopStomachSound(preyComp);
         }
         _pendingImmunityUpdates.Add(args.Entity);
     }
@@ -94,19 +85,40 @@ public sealed class VoreImmunitySystem : EntitySystem
     /// <summary>
     /// handling changes to component values if the client system sends changes while being in a container
     /// </summary>
-    private void OnVoreSettingsChanged(EntityUid uid, DevouredComponent comp, VoreSettingsEvent ev){
-        if (!ev.AllowSound){
-            if (comp.Stream != null){
-                _audio.Stop(comp.Stream.Value);
-                comp.Stream = null;
-            }
+    private void OnVoreSettingsChanged(EntityUid uid, PreyComponent comp, VoreSettingsEvent ev){
+        comp.AllowSound = ev.AllowSound;
+
+        /* only applies changes directly if inside a container currently
+        else just update comp and return*/
+        if (!HasComp<DevouredComponent>(uid))
             return;
+        if (!ev.AllowSound){
+            StopStomachSound(comp);
         }
-        if (ev.AllowSound&& comp.Stream == null && _playerManager.TryGetSessionByEntity(uid, out var session)){
-            comp.Stream = _audio.PlayEntity(comp.SoundBelly, session, uid, AudioParams.Default.WithLoop(true))?.Entity;
+        else{
+            StartStomachSound(uid, comp);
         }
     }
 
+    private void StartStomachSound(EntityUid uid, PreyComponent comp){
+        if (!comp.AllowSound)
+            return;
+        if (!_playerManager.TryGetSessionByEntity(uid, out var session))
+            return;
+        // avoid double-starting
+        if (comp.Stream != null)
+            return;
+        comp.Stream = _audio.PlayEntity(comp.SoundBelly, session, uid, AudioParams.Default.WithLoop(true))?.Entity;
+    }
+
+    private void StopStomachSound(PreyComponent comp)
+    {
+        if (comp.Stream == null)
+            return;
+
+        _audio.Stop(comp.Stream.Value);
+        comp.Stream = null;
+    }
 
     private void OnStartup(EntityUid uid, DevouredComponent comp, ComponentStartup args){
         ApplyStomachImmunities(uid);

@@ -40,7 +40,6 @@ public sealed class VoreSystem : EntitySystem
         SubscribeLocalEvent<ConsentComponent, ComponentStartup>(OnConsentStartup);
         SubscribeLocalEvent<ConsentComponent, EntityConsentToggleUpdatedEvent>(OnConsentUpdated);
 
-        SubscribeLocalEvent<VoreComponent, VoreSettingsEvent>(OnVoreSettingsChanged);
         SubscribeLocalEvent<VoreComponent, GetVerbsEvent<Verb>>(OnGetVerbs);
         SubscribeLocalEvent<VoreComponent, OnVoreDoAfter>(OnVoreDoAfter);
         SubscribeLocalEvent<VoreComponent, BeingGibbedEvent>(OnGibbedRemoveContent);
@@ -104,14 +103,13 @@ public sealed class VoreSystem : EntitySystem
             RemComp<VoreComponent>(uid);
         }
 
+        if (hasPrey){
+            EnsureComp<PreyComponent>(uid);
+        }
+        else{
+            RemComp<PreyComponent>(uid);
+        }
         //TODO component for digest
-    }
-
-    /// <summary>
-    /// handling changes to component values the moment client sends changes through saving
-    /// </summary>
-    private void OnVoreSettingsChanged(EntityUid uid, VoreComponent comp, VoreSettingsEvent ev){
-        comp.AllowSound = ev.AllowSound;
     }
 
     /// <summary>
