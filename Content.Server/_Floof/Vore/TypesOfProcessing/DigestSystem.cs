@@ -34,72 +34,15 @@ public sealed class DigestSystem : EntitySystem
     [Dependency] private readonly IConfigurationManager _cfg = default!;
     [Dependency] private readonly ItemSlotsSystem _itemSlots = default!;
 
-    public override void Initialize(){
-        SubscribeLocalEvent<DigestComponent, GetVerbsEvent<Verb>>(OnGetVerbs);
-    }
-
-    /// <summary>
-    /// creates a verb only showing up if the pred has any content in their stomach
-    /// and only shows if at least one prey has consented to being digested
-    /// </summary>
-    private void OnGetVerbs(EntityUid uid, DigestComponent comp, GetVerbsEvent<Verb> args){
-        var user = args.User;
-
-        // using command to turn on/off verb components
-        if (!_cfg.GetCVar(VoreCVars.DigestionEnabled))
-            return;
-
-        // only the predator themself can see the verb when inspecting themself
-        if (user != uid)
-            return;
-        
-        // only when reachable & interactable
-        if (!args.CanInteract || !args.CanAccess)
-            return;
-        
-        //no container no verb
-        if (!_containerSystem.TryGetContainer(uid, "vore_container", out var container))
-            return;
-        
-        //only shows verb if there is atleast one prey in the stomach
-        if (container.ContainedEntities.Count == 0)
-            return;
-
-        //goes through all prey inside the stomach
-        foreach (var prey in container.ContainedEntities){
-            var preyName = Name(prey);
-            
-            //only shows verb if the prey has consented to being digested
-            if (_consentSystem.HasConsent(prey, "Digestable") && !comp.ActiveDigesting.Contains(prey)){
-                args.Verbs.Add(new Verb
-                {
-                    Text = $"Digest {preyName}",
-                    Category = VoreVerbCategory.VoreDigest,
-                    Act = () => TryDigest(prey)
-                });
-            }
-
-            //only shows up if the prey is currently being digested
-            else if (comp.ActiveDigesting.Contains(prey)){
-                args.Verbs.Add(new Verb
-                {
-                    Text = $"Stop digesting {preyName}",
-                    Category = VoreVerbCategory.VoreDigest,
-                    Act = () => StopDigest(user, prey)
-                });
-            }
-        }            
-    }
-
     /// <summary>
     /// main method of digestion, will start the digestion process and apply the required effects to the prey and predator
     /// also turns off suit sensors to prevent any possible interaction with them during digestion
     /// </summary>
-    private void TryDigest(EntityUid prey){
+    internal void TryDigest(EntityUid prey){
         if (!_containerSystem.TryGetContainingContainer(prey, out var container))
             return;
         var pred = container.Owner;
-        if (!TryComp<DigestComponent>(pred, out var comp)) 
+        if (!TryComp<PreyComponent>(pred, out var comp)) 
             return;
 
         _popupSystem.PopupEntity("You begin digesting your prey...", pred, pred);
@@ -117,8 +60,8 @@ public sealed class DigestSystem : EntitySystem
     /// <summary>
     /// Will stop the active digestion of a prey inside of the container
     /// </summary>
-    private void StopDigest(EntityUid pred, EntityUid prey){
-        if (!TryComp<DigestComponent>(pred, out var comp))
+    internal void StopDigest(EntityUid pred, EntityUid prey){
+        if (!TryComp<PreyComponent>(pred, out var comp))
             return;
         comp.ActiveDigesting.Remove(prey);
         comp.Timer[prey] = 0f;
@@ -131,7 +74,7 @@ public sealed class DigestSystem : EntitySystem
     /// Finishes the digestion of a prey by removing it from the container 
     /// and sending it to cryostorage after which they get deleted
     /// </summary>
-    private void FinishDigest(EntityUid prey, DigestComponent comp){
+    private void FinishDigest(EntityUid prey, PreyComponent comp){
         comp.Health.Remove(prey);
         comp.Timer.Remove(prey);
         comp.ActiveDigesting.Remove(prey);
@@ -174,8 +117,8 @@ public sealed class DigestSystem : EntitySystem
     /// also checks for any possible issues with the prey like deletion or being removed from the container and stops the digestion if any of those happen
     /// </summary>
     public override void Update(float frameTime){
-        var preds = new List<(EntityUid pred, DigestComponent comp)>();
-        var query = EntityQueryEnumerator<DigestComponent>();
+        var preds = new List<(EntityUid pred, PreyComponent comp)>();
+        var query = EntityQueryEnumerator<PreyComponent>();
         
         // goes through all predators with a digest component
         while (query.MoveNext(out var pred, out var comp)){
@@ -280,7 +223,7 @@ public sealed class DigestSystem : EntitySystem
     /// <summary>
     /// shows a popup to the prey based on the state of digestion as a form of feedback
     /// </summary>
-    private void ShowDigestPopup(EntityUid pred, EntityUid prey, DigestComponent comp){
+    private void ShowDigestPopup(EntityUid pred, EntityUid prey, PreyComponent comp){
         var health = comp.Health[prey];
         var max = comp.Max;
         var percent = health / max;

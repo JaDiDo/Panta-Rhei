@@ -6,7 +6,7 @@ using Robust.Shared.Audio;
 namespace Content.Shared._Floof.Vore;
 
 [RegisterComponent]
-public sealed partial class VoreComponent : Component
+public sealed partial class PredComponent : Component
 {
     /// <summary>
     /// The ID of the container used for vore mechanics.

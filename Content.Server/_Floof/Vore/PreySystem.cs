@@ -23,7 +23,7 @@ using Content.Shared.Flash.Components;
 using Content.Shared.Inventory;
 namespace Content.Server._Floof.Vore;
 
-public sealed class DevouredSystem : EntitySystem
+public sealed class PreySystem : EntitySystem
 {
     [Dependency] private readonly SharedContainerSystem _containerSystem = default!;
     [Dependency] private readonly MobStateSystem _mobStateSystem = default!;
@@ -35,8 +35,8 @@ public sealed class DevouredSystem : EntitySystem
 
     public override void Initialize()
     {
-        SubscribeLocalEvent<VoreComponent, EntInsertedIntoContainerMessage>(OnPreyInsertedIntoContainer);
-        SubscribeLocalEvent<VoreComponent, EntRemovedFromContainerMessage>(OnPreyRemovedFromContainer);
+        SubscribeLocalEvent<PredComponent, EntInsertedIntoContainerMessage>(OnPreyInsertedIntoContainer);
+        SubscribeLocalEvent<PredComponent, EntRemovedFromContainerMessage>(OnPreyRemovedFromContainer);
         
         SubscribeLocalEvent<DevouredComponent, ComponentStartup>(OnStartup);
         SubscribeLocalEvent<DevouredComponent, GetVerbsEvent<Verb>>(OnGetVerbs);
@@ -57,7 +57,7 @@ public sealed class DevouredSystem : EntitySystem
     /// <summary>
     /// responsible for giving the component that gives the prey immunities
     /// </summary>
-    private void OnPreyInsertedIntoContainer(EntityUid uid, VoreComponent comp, EntInsertedIntoContainerMessage args){
+    private void OnPreyInsertedIntoContainer(EntityUid uid, PredComponent comp, EntInsertedIntoContainerMessage args){
         //double check making sure its a vore_container
         if (args.Container.ID != comp.ContainerId)
             return;
@@ -67,7 +67,7 @@ public sealed class DevouredSystem : EntitySystem
     /// <summary>
     /// responsible for removing components and immunities
     /// </summary>
-    private void OnPreyRemovedFromContainer(EntityUid uid, VoreComponent comp, EntRemovedFromContainerMessage args){
+    private void OnPreyRemovedFromContainer(EntityUid uid, PredComponent comp, EntRemovedFromContainerMessage args){
         if (TryComp<DevouredComponent>(args.Entity, out _))
             _pendingImmunityUpdates.Add(args.Entity);
     }
@@ -109,7 +109,7 @@ public sealed class DevouredSystem : EntitySystem
     private void OnPreyMobStateChanged(EntityUid uid, DevouredComponent comp, ref MobStateChangedEvent args){
         if (args.NewMobState != MobState.Dead && args.NewMobState != MobState.Critical)
             return;
-        if (!TryComp<VoreComponent>(uid, out var vore))
+        if (!TryComp<PredComponent>(uid, out var vore))
             return;
 
         var safety = 0;
@@ -138,9 +138,10 @@ public sealed class DevouredSystem : EntitySystem
     /// true if the entity is inside a vore container
     /// </returns>
     private bool IsInVoreContainer(EntityUid uid){
-        if (!TryComp<VoreComponent>(uid, out var comp))
+        if (!_containerSystem.TryGetContainingContainer(uid, out var container))
             return false;
-        return _containerSystem.TryGetContainingContainer(uid, out var container) &&
+
+        return TryComp<PredComponent>(container.Owner, out var comp) &&
                container.ID == comp.ContainerId;
     }
 
