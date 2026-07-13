@@ -85,14 +85,12 @@ public sealed class PreySystem : EntitySystem
         if (args.User != args.Target)
             return;
 
-
         var pred = container.Owner;
         var prey = uid;
 
         args.Verbs.Add(new Verb
         {
             Text = "Struggle Free",
-            Category = VoreVerbCategory.VoreGeneral,
             Act = () => 
             {
                 _popupSystem.PopupEntity("You struggle free!", prey, prey);

@@ -38,6 +38,11 @@ public sealed class PredSystem : EntitySystem
     public static readonly ProtoId<ConsentTogglePrototype> isPrey = "PreyVore";
     public static readonly ProtoId<ConsentTogglePrototype> isDigest = "Digestable";
     
+    public static readonly VerbCategory VoreGeneral =
+        new("Vore", null);
+    public static readonly VerbCategory VoreDigest =
+        new("Digest", null);
+
     private readonly HashSet<EntityUid> _pendingConsentUpdates = new();
 
     public override void Initialize()
@@ -112,11 +117,14 @@ public sealed class PredSystem : EntitySystem
                     if (!_containerSystem.Remove(uid, container))
                         break;
                 }                
+                RemComp<PreyComponent>(uid);
             }
-            RemComp<PreyComponent>(uid);
+            
         }
+
         if (hasPred){
-            EnsureComp<PredComponent>(uid);
+            var pred = EnsureComp<PredComponent>(uid);
+            var container = _containerSystem.EnsureContainer<Container>(uid, pred.ContainerId);
         }
         else{
             if (TryComp<PredComponent>(uid, out var comp)){
@@ -127,8 +135,8 @@ public sealed class PredSystem : EntitySystem
                         _containerSystem.ShutdownContainer(container);
                     }
                 }
+                RemComp<PredComponent>(uid);
             }
-            RemComp<PredComponent>(uid);
         }
     }
 
@@ -158,16 +166,31 @@ public sealed class PredSystem : EntitySystem
         }
     }
 
-    // no self activation, only there to remove your own prey and not have other intervene or have others see that you have prey
+    /// <summary>
+    /// handles the verbs that control self inspection not including the different voretypes
+    /// </summary>
     public void BuildSelfInteractionVerbs(EntityUid uid, PredComponent comp, GetVerbsEvent<Verb> args){
-        var container = _containerSystem.EnsureContainer<Container>(uid, comp.ContainerId);
+        if (!_containerSystem.TryGetContainer(uid, comp.ContainerId, out var container))
+            return;
         if (container.ContainedEntities.Count > 0){
             args.Verbs.Add(new Verb
             {
                 Text = "Release all prey",
-                Category = VoreVerbCategory.VoreGeneral,
-                Act = () => TryReleasePrey(uid, comp)
+                Category = VoreGeneral,
+                Act = () => TryReleaseAllPrey(uid, comp)
             });
+
+            foreach (var prey in container.ContainedEntities){
+                if (!HasComp<BodyComponent>(prey))
+                    continue;
+                var preyName = Name(prey);
+                args.Verbs.Add(new Verb
+                {
+                    Text = $"Release {preyName}",
+                    Category = VoreGeneral,
+                    Act = () => TryReleasePrey(uid, comp, prey)
+                });
+            }
         }
     }
 
@@ -184,7 +207,7 @@ public sealed class PredSystem : EntitySystem
             args.Verbs.Add(new Verb
             {
                 Text = "Devour",
-                Category = VoreVerbCategory.VoreGeneral,
+                Category = VoreGeneral,
                 Act = () => TryVore(user, target)
             });
         }
@@ -193,7 +216,7 @@ public sealed class PredSystem : EntitySystem
                 args.Verbs.Add(new Verb
                 {
                     Text = "Insert Self",
-                    Category = VoreVerbCategory.VoreGeneral,
+                    Category = VoreGeneral,
                     Act = () => TryVore(target, user)
                 });
         }
@@ -211,7 +234,7 @@ public sealed class PredSystem : EntitySystem
                     args.Verbs.Add(new Verb
                     {
                         Text = $"Insert {Name(prey)}",
-                        Category = VoreVerbCategory.VoreGeneral,
+                        Category = VoreGeneral,
                         Act = () => TryVore(target, prey)
                     });
                 }
@@ -236,7 +259,7 @@ public sealed class PredSystem : EntitySystem
                 args.Verbs.Add(new Verb
                 {
                     Text = $"Digest {preyName}",
-                    Category = VoreVerbCategory.VoreDigest,
+                    Category = VoreDigest,
                     Act = () => _digestSystem.TryDigest(prey)
                 });
             }
@@ -246,7 +269,7 @@ public sealed class PredSystem : EntitySystem
                 args.Verbs.Add(new Verb
                 {
                     Text = $"Stop digesting {preyName}",
-                    Category = VoreVerbCategory.VoreDigest,
+                    Category = VoreDigest,
                     Act = () => _digestSystem.StopDigest(uid, prey)
                 });
             }
@@ -284,7 +307,8 @@ public sealed class PredSystem : EntitySystem
             return;
 
         var pred = uid;
-        var container = _containerSystem.EnsureContainer<Container>(pred, comp.ContainerId);
+        if (!_containerSystem.TryGetContainer(uid, comp.ContainerId, out var container))
+            return;
 
         var count = 0;
         //only counts entities with bodies meaning no items
@@ -337,11 +361,23 @@ public sealed class PredSystem : EntitySystem
     }
 
     /// <summary>
-    /// for when the pred removes the prey from their container
-    /// will remove the buffs such as space immunity for the target
+    /// will remove only the listed prey from the preds stomach at once
     /// </summary>
-    private void TryReleasePrey(EntityUid pred, PredComponent comp){
-        var container = _containerSystem.EnsureContainer<Container>(pred, comp.ContainerId);
+    private void TryReleasePrey(EntityUid pred, PredComponent comp, EntityUid prey){
+        if (!_containerSystem.TryGetContainer(pred, comp.ContainerId, out var container))
+            return;
+        _containerSystem.Remove(prey, container);
+
+        _popupSystem.PopupEntity("You have been released!", prey, prey);
+        _popupSystem.PopupEntity($"You release {Name(prey)}.", pred, pred);
+    }
+
+    /// <summary>
+    /// will remove all prey from the preds stomach at once
+    /// </summary>
+    private void TryReleaseAllPrey(EntityUid pred, PredComponent comp){
+        if (!_containerSystem.TryGetContainer(pred, comp.ContainerId, out var container))
+            return;
         var preyList = new List<EntityUid>(container.ContainedEntities);
         //remove everything from people to items
         foreach (var prey in preyList){
@@ -355,21 +391,21 @@ public sealed class PredSystem : EntitySystem
     /// in case the user gets gibbed need content emptied including prey+items
     /// </summary>
     private void OnGibbedRemoveContent(EntityUid uid, PredComponent comp, BeingGibbedEvent args){
-        TryReleasePrey(uid, comp);
+        TryReleaseAllPrey(uid, comp);
     }
 
     /// <summary>
     /// in case the user gets destroyed through for example singulo or gibbing
     /// </summary>
     private void OnDestroyedRemoveContent(EntityUid uid, PredComponent comp, DestructionEventArgs args){
-        TryReleasePrey(uid, comp);
+        TryReleaseAllPrey(uid, comp);
     }
 
     /// <summary>
     /// in case of polymorp scenarios such as kitsune release all the content
     /// </summary>
     private void OnPolymorphedTransferContent(EntityUid uid, PredComponent comp, PolymorphedEvent args){
-        TryReleasePrey(uid, comp);
+        TryReleaseAllPrey(uid, comp);
     }
  
     /// <summary>

@@ -52,9 +52,6 @@ public sealed class DigestSystem : EntitySystem
         comp.Health.TryAdd(prey, comp.Max);
         comp.ActiveDigesting.Add(prey);
         comp.Timer[prey] = 0f;
-
-        //as a way of prevention of any interaction with the active digestion scene
-        _suitSensorSystem.SetAllSensors(prey, SuitSensorMode.SensorOff);
     }
 
     /// <summary>
