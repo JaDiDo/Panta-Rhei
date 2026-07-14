@@ -1,7 +1,7 @@
 <DefaultWindow
     xmlns="https://spacestation14.io"
     Title="Vore Settings"
-    MinSize="400 200">
+    MinSize="1000 500">
     <BoxContainer Orientation="Vertical" SeparationOverride="8">
         <BoxContainer Orientation="Horizontal" SeparationOverride="8">
             <Button
@@ -23,6 +23,11 @@
                 Text="Export"/>
         </BoxContainer>
         <TabContainer Name="MasterTabContainer">
+            <BoxContainer Name="Info" Orientation="Vertical" SeparationOverride="8" VerticalExpand="True">
+                <ScrollContainer VerticalExpand="True" MinSize="0 500">
+                    <RichTextLabel Name="InfoText" VerticalExpand="True"/>
+                </ScrollContainer>
+            </BoxContainer>
             <BoxContainer Name="Consent" Orientation="Vertical" SeparationOverride="8">
                 <BoxContainer Orientation="Vertical" SeparationOverride="6">
                     <Label Text="Vore Types" />

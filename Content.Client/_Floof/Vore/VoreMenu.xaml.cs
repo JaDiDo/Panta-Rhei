@@ -48,7 +48,51 @@ public sealed partial class VoreMenu : DefaultWindow
         ResetVoreSettings.OnPressed += _ => Reset();
         ImportVoreSettings.OnPressed += _ => Import();
         ExportVoreSettings.OnPressed += _ => Export();
-        
+
+        var info = new FormattedMessage();
+        info.AddText(@"
+Menu heavily WIP. Feedback is always welcome
+
+# Vore Wiki
+
+## How to interact
+Currently there are three ways to start a vore interaction:
+- by inserting yourself
+- getting devoured
+- inserting someone else by either carrying or pulling them
+If you are a prey inside another container such as for example duffelbags or by being carried you will be automatically ejected and dropped. 
+This also will allow interaction with prey inside the same vorecontainer such as yourself. 
+After a loading bar lasting seconds that allows you to cancel the action by walking away the prey will be transported inside the container with a gulp only hearable for the 2 involved entities.
+Currently a hard limit only allows you to contain [bold]3 preys maximum[/bold] not including nested vore. 
+If you decide to escape you can either struggle free using a verb through self interaction or have the pred eject you also through self interaction.
+
+## Consent
+The System automatically attempts to deal with most consent issues such as:
+- not allowing interactions with disconnected players, entities that lack BodyComponent or aren't player controlled at all
+- giving prey immunities such as against space, lack of air and temperature
+- turning off prey's cords inside a container and returning them into their previous state once ejected
+- autoejecting crit or dead prey and making them not nommable in the first place 
+Turning off the related consent will also eject you from containers and vice versa empty plus remove your container.
+But [bold]remember[/bold], you are still hearable from inside with your emotes and will visually vanish during the insertion so make sure to watch out for your coworkers!
+
+
+# Types of vore
+
+## Endo
+The default interaction for each scene.
+Prey can safely be held indefinitely inside until they either escape on their own or are ejected.
+
+## Digestion
+If you contain a prey with an active digest consent you will be able to slowly digest them over time.
+During that you will slowly fill your own hunger up by removing part of their artificial health (to avoid consent breach).
+It's possible to stop digestion the entire time after which the prey slowly regains health using their own hunger.
+But once their health reaches 0 the prey will be fully digested. 
+For others it will be like they cryoed: removal of crew manifest, reopening the job, getting rid of their belongings and the cryo announcement.
+Only you will know their fate.
+
+            ");
+        InfoText.SetMessage(info);
+
         AllowSound.OnToggled  += args => UnsavedChanges();
     }
 
