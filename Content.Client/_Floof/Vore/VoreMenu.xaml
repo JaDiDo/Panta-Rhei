@@ -53,6 +53,8 @@
                         Value="20" />
                 </BoxContainer>
             </BoxContainer>
+            <BoxContainer Name="Container" Orientation="Vertical" SeparationOverride="6">
+            </BoxContainer>
             <BoxContainer Name="Options" Orientation="Vertical" SeparationOverride="6">
                     <CheckBox 
                         Name="AllowSound" 
