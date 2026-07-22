@@ -36,10 +36,8 @@ public sealed class PredSystem : EntitySystem
 
     public static readonly ProtoId<ConsentTogglePrototype> isDigest = "Digestable";
     
-    public static readonly VerbCategory VoreGeneral =
-        new("Vore", null);
-    public static readonly VerbCategory VoreDigest =
-        new("Digest", null);
+    public static readonly VerbCategory VoreGeneral = new("Vore", null);
+    public static readonly VerbCategory VoreDigest = new("Digest", null);
 
     public override void Initialize()
     {
@@ -72,7 +70,9 @@ public sealed class PredSystem : EntitySystem
 
         if (TryComp<PredComponent>(user, out var predComp) && user == target){
             BuildSelfInteractionVerbs(user, predComp, args);
-            BuildDigestVerbs(user, predComp, args);
+            if (_cfg.GetCVar(VoreCVars.DigestionEnabled)){
+                BuildDigestVerbs(user, predComp, args);
+            }
         }
     }
 
@@ -131,8 +131,8 @@ public sealed class PredSystem : EntitySystem
                 });
         }
         // 3. insert someone else if you pull or carry them
-        // PredComponent implies consent to feed other
-        if (HasComp<PredComponent>(user)){
+        // VoreComponents imply consent to feed others
+        if (HasComp<PredComponent>(user) || HasComp<PreyComponent>(user)){
             EntityUid? carried = null;
             if (TryComp<CarryingComponent>(user, out var carrying) && carrying.Carried != default)
                 carried  = carrying.Carried;
@@ -159,12 +159,13 @@ public sealed class PredSystem : EntitySystem
     public void BuildDigestVerbs(EntityUid uid, PredComponent comp, GetVerbsEvent<Verb> args){
         if (!_containerSystem.TryGetContainer(uid, comp.ContainerId, out var container))
             return;
-        if (!TryComp<PreyComponent>(uid, out var preyComp)){
-            return;
-        }
+
         foreach (var prey in container.ContainedEntities){
             var preyName = Name(prey);
+            if (!TryComp<PreyComponent>(prey, out var preyComp))
+                continue;
 
+            //only shows up if consent is on prey and prey not currently being digested
             if (_consentSystem.HasConsent(prey, isDigest) && !preyComp.ActiveDigesting.Contains(prey)){
                 args.Verbs.Add(new Verb
                 {
@@ -258,7 +259,7 @@ public sealed class PredSystem : EntitySystem
         //in case prey is being carried by pred, someone else or is holding the prey drop them
         // 1. pred carrying prey
         if (TryComp<CarryingComponent>(pred, out var predCarrying) &&
-            predCarrying.Carried == prey)
+        predCarrying.Carried == prey)
             _carryingSystem.DropCarried(pred, prey);
         // 2. prey carrying pred
         if (TryComp<CarryingComponent>(prey, out var preyCarrying) &&
@@ -271,7 +272,7 @@ public sealed class PredSystem : EntitySystem
     }
 
     /// <summary>
-    /// will remove only the listed prey from the preds stomach at once
+    /// will remove only the listed prey from the preds stomach
     /// </summary>
     private void TryReleasePrey(EntityUid pred, PredComponent comp, EntityUid prey){
         if (!_containerSystem.TryGetContainer(pred, comp.ContainerId, out var container))

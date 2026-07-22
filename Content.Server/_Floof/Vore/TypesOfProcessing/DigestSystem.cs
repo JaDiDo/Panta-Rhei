@@ -42,7 +42,7 @@ public sealed class DigestSystem : EntitySystem
         if (!_containerSystem.TryGetContainingContainer(prey, out var container))
             return;
         var pred = container.Owner;
-        if (!TryComp<PreyComponent>(pred, out var comp)) 
+        if (!TryComp<PreyComponent>(prey, out var comp)) 
             return;
 
         _popupSystem.PopupEntity("You begin digesting your prey...", pred, pred);
@@ -58,7 +58,7 @@ public sealed class DigestSystem : EntitySystem
     /// Will stop the active digestion of a prey inside of the container
     /// </summary>
     internal void StopDigest(EntityUid pred, EntityUid prey){
-        if (!TryComp<PreyComponent>(pred, out var comp))
+        if (!TryComp<PreyComponent>(prey, out var comp))
             return;
         comp.ActiveDigesting.Remove(prey);
         comp.Timer[prey] = 0f;
@@ -146,7 +146,8 @@ public sealed class DigestSystem : EntitySystem
                     /* in case prey is removed from container stop digestion and go through regeneration path
                     or in case consent is removed during digestion*/
                     if (!_containerSystem.TryGetContainingContainer(prey, out var container) ||
-                    container.ID != "vore_container" ||
+                    !TryComp<PredComponent>(container.Owner, out var predComp) ||
+                    container.ID != predComp.ContainerId ||
                     !_consentSystem.HasConsent(prey, "Digestable")){
                         comp.ActiveDigesting.Remove(prey);
                         comp.Timer[prey] = 0f;

@@ -22,7 +22,7 @@ public sealed class ConsentSystem : EntitySystem
     }
 
     /// <summary>
-    /// To get the most recent values for consent and current container
+    /// To get the most recent values for consent
     /// </summary>
     public override void Update(float frameTime){
         base.Update(frameTime);
@@ -57,48 +57,45 @@ public sealed class ConsentSystem : EntitySystem
     }
 
     /// <summary>
-    /// gives a mob the vore component if they have selected either pred or prey consent and removes it if they have neither
-    /// also handles container if consent is off but preds container is still full/prey is inside vore container 
+    /// gives a mob the prey and/or pred component if they have selected either consent and removal for deselection
+    /// also handles container if consent is off by removing prey from it and shutting container down  
     /// </summary>
     private void ApplyVoreConsent(EntityUid uid){
         var hasPred = _consentSystem.HasConsent(uid, isPred);
         var hasPrey = _consentSystem.HasConsent(uid, isPrey);
 
-        //give the mob the needed component to be able to see the verbs
         if (hasPrey){
             EnsureComp<PreyComponent>(uid);
         }
-        else{
-            if (TryComp<PredComponent>(uid, out var comp)){
+        else if (HasComp<PreyComponent>(uid)){
             /* in case prey is inside a container immediately release them when they turn off prey consent
             works as an emergency leave for the prey*/    
-                var safety = 0;
-                while (_containerSystem.TryGetContainingContainer(uid, out var container)  && container.ID == comp.ContainerId){
-                    if (++safety > 10) 
-                        break;
-                    if (!_containerSystem.Remove(uid, container))
-                        break;
-                }                
-                RemComp<PreyComponent>(uid);
+            var safety = 0;
+            while (_containerSystem.TryGetContainingContainer(uid, out var container))
+            {
+                if (++safety > 10)
+                    break;
+                if (!TryComp<PredComponent>(container.Owner, out var predComp))
+                    break;
+                if (container.ID != predComp.ContainerId)
+                    break;
+                if (!_containerSystem.Remove(uid, container))
+                    break;
             }
-            
+            RemComp<PreyComponent>(uid);
         }
 
         if (hasPred){
             var pred = EnsureComp<PredComponent>(uid);
-            var container = _containerSystem.EnsureContainer<Container>(uid, pred.ContainerId);
+            _containerSystem.EnsureContainer<Container>(uid, pred.ContainerId);
         }
-        else{
-            if (TryComp<PredComponent>(uid, out var comp)){
-                // same for pred release all current prey after turning off consent
-                if (!hasPred){
-                    if (_containerSystem.TryGetContainer(uid, comp.ContainerId, out var container)){
-                        _containerSystem.EmptyContainer(container);
-                        _containerSystem.ShutdownContainer(container);
-                    }
-                }
-                RemComp<PredComponent>(uid);
+        else if (TryComp<PredComponent>(uid, out var comp)){
+            // same for pred release all current prey after turning off consent
+            if (_containerSystem.TryGetContainer(uid, comp.ContainerId, out var container)){
+                _containerSystem.EmptyContainer(container);
+                _containerSystem.ShutdownContainer(container);
             }
+            RemComp<PredComponent>(uid);
         }
     }
 }

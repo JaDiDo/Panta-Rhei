@@ -4,18 +4,26 @@ using Content.Shared.Medical.SuitSensor;
 
 namespace Content.Shared._Floof.Vore;
 
+
+/// <summary>
+/// Passive component for prey to keep track of health and digestion state including outside
+/// </summary>
 [RegisterComponent]
 public sealed partial class PreyComponent : Component
 {
-    public Dictionary<EntityUid, float> Health = new();
     // the max health of the prey used for digestion and slow regeneration
+    public Dictionary<EntityUid, float> Health = new();
     public float Max = 100f;
+    // trackers for digestion and regeneration
     public HashSet<EntityUid> ActiveDigesting = new();
     public Dictionary<EntityUid, float> Timer = new();
-    // the stage of digestion, used for the popup
     public Dictionary<EntityUid, int> DigestPopupStage = new();
 }
 
+
+/// <summary>
+/// Active Component for prey that is devoured for immunites, overlays and sensors
+/// </summary>
 [RegisterComponent, NetworkedComponent]
 public sealed partial class DevouredComponent : Component
 {

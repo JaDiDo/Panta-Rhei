@@ -44,6 +44,9 @@ public sealed class PreySystem : EntitySystem
         SubscribeLocalEvent<DevouredComponent, MoveInputEvent>(OnRelayMovement);        
     }
 
+    /// <summary>
+    /// To get the most recent values for current container
+    /// </summary>
     public override void Update(float frameTime){
         base.Update(frameTime);
 
@@ -107,13 +110,15 @@ public sealed class PreySystem : EntitySystem
     private void OnPreyMobStateChanged(EntityUid uid, DevouredComponent comp, ref MobStateChangedEvent args){
         if (args.NewMobState != MobState.Dead && args.NewMobState != MobState.Critical)
             return;
-        if (!TryComp<PredComponent>(uid, out var vore))
-            return;
 
         var safety = 0;
-        while (_containerSystem.TryGetContainingContainer(uid, out var container) && container.ID == vore.ContainerId){
+        while (_containerSystem.TryGetContainingContainer(uid, out var container)){
             // prevention of possible infinite loop incase failed removal (better safe than sorry)
             if (++safety > 10)
+                break;
+            if (!TryComp<PredComponent>(container.Owner, out var vore))
+                break;
+            if (container.ID != vore.ContainerId)
                 break;
             if (!_containerSystem.Remove(uid, container))
                 break;
