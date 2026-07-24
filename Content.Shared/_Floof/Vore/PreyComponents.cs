@@ -12,12 +12,12 @@ namespace Content.Shared._Floof.Vore;
 public sealed partial class PreyComponent : Component
 {
     // the max health of the prey used for digestion and slow regeneration
-    public Dictionary<EntityUid, float> Health = new();
-    public float Max = 100f;
+    public float Health = 100f;
+    public float MaxHealth = 100f;
     // trackers for digestion and regeneration
-    public HashSet<EntityUid> ActiveDigesting = new();
-    public Dictionary<EntityUid, float> Timer = new();
-    public Dictionary<EntityUid, int> DigestPopupStage = new();
+    public bool ActiveDigesting;
+    public float Timer;
+    public int DigestPopupStage;
 }
 
 

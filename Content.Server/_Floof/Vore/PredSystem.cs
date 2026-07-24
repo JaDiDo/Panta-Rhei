@@ -166,7 +166,7 @@ public sealed class PredSystem : EntitySystem
                 continue;
 
             //only shows up if consent is on prey and prey not currently being digested
-            if (_consentSystem.HasConsent(prey, isDigest) && !preyComp.ActiveDigesting.Contains(prey)){
+            if (_consentSystem.HasConsent(prey, isDigest) && !preyComp.ActiveDigesting){
                 args.Verbs.Add(new Verb
                 {
                     Text = $"Digest {preyName}",
@@ -176,7 +176,7 @@ public sealed class PredSystem : EntitySystem
             }
 
             //only shows up if the prey is currently being digested
-            else if (preyComp.ActiveDigesting.Contains(prey)){
+            else if (preyComp.ActiveDigesting){
                 args.Verbs.Add(new Verb
                 {
                     Text = $"Stop digesting {preyName}",

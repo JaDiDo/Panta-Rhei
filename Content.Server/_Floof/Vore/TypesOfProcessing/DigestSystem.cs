@@ -49,9 +49,8 @@ public sealed class DigestSystem : EntitySystem
         _popupSystem.PopupEntity("You are being digested!", prey, prey, PopupType.LargeCaution);
         
         //used to track the digestion progress and the active digestion status of the prey
-        comp.Health.TryAdd(prey, comp.Max);
-        comp.ActiveDigesting.Add(prey);
-        comp.Timer[prey] = 0f;
+        comp.ActiveDigesting = true;
+        comp.Timer = 0f;
     }
 
     /// <summary>
@@ -60,8 +59,8 @@ public sealed class DigestSystem : EntitySystem
     internal void StopDigest(EntityUid pred, EntityUid prey){
         if (!TryComp<PreyComponent>(prey, out var comp))
             return;
-        comp.ActiveDigesting.Remove(prey);
-        comp.Timer[prey] = 0f;
+        comp.ActiveDigesting = false;
+        comp.Timer = 0f;
 
         _popupSystem.PopupEntity("You suppress the urge to continue digesting.", pred, pred);
         _popupSystem.PopupEntity("The stomach around you relaxes as digestion stops.", prey, prey);
@@ -72,10 +71,11 @@ public sealed class DigestSystem : EntitySystem
     /// and sending it to cryostorage after which they get deleted
     /// </summary>
     private void FinishDigest(EntityUid prey, PreyComponent comp){
-        comp.Health.Remove(prey);
-        comp.Timer.Remove(prey);
-        comp.ActiveDigesting.Remove(prey);
-        comp.DigestPopupStage.Remove(prey);
+        //clear digestion tracking
+        comp.Health = 0f;
+        comp.Timer = 0f;
+        comp.ActiveDigesting = false;
+        comp.DigestPopupStage = 0;
 
         if (_containerSystem.TryGetContainingContainer(prey, out var container))
             _popupSystem.PopupEntity("You feel satiated as you feel your belly shrinks down in size", container.Owner, container.Owner);
@@ -114,117 +114,99 @@ public sealed class DigestSystem : EntitySystem
     /// also checks for any possible issues with the prey like deletion or being removed from the container and stops the digestion if any of those happen
     /// </summary>
     public override void Update(float frameTime){
-        var preds = new List<(EntityUid pred, PreyComponent comp)>();
         var query = EntityQueryEnumerator<PreyComponent>();
-        
-        // goes through all predators with a digest component
-        while (query.MoveNext(out var pred, out var comp)){
-            preds.Add((pred, comp));
-        }
-        
-        // goes through all the prey of each pred and applies digestion/healing effects
-        foreach (var (pred, comp) in preds){
+        while (query.MoveNext(out var prey, out var comp)){
             
-            //in case a prey reaches 0 health
-            var fullydigest = new List<EntityUid>();
+            // timer for 1 second intervals
+            comp.Timer += frameTime;
+            if (comp.Timer < 1f)
+                continue;
+            comp.Timer -= 1f;
 
-            foreach (var prey in comp.Health.Keys.ToList()){
-                // timer for 1 second intervals
-                comp.Timer[prey] += frameTime;
-                if (comp.Timer[prey] < 1f)
-                    continue;
-                comp.Timer[prey] -= 1f;
+            // Skip if fully healed and not being digested
+            if (!comp.ActiveDigesting && comp.Health >= comp.MaxHealth){
+                continue;
+            }
 
-                //in case prey no longer exists
-                if (!EntityManager.EntityExists(prey)){
-                    fullydigest.Add(prey);
+            // digestion path 
+            if (comp.ActiveDigesting){        
+                /* in case prey is removed from container stop digestion and go through regeneration path
+                or in case consent is removed during digestion*/
+                if (!_containerSystem.TryGetContainingContainer(prey, out var container) ||
+                !TryComp<PredComponent>(container.Owner, out var predComp) ||
+                container.ID != predComp.ContainerId ||
+                !_consentSystem.HasConsent(prey, "Digestable")){
+                    comp.ActiveDigesting = false;
+                    comp.Timer = 0f;
                     continue;
                 }
 
-                // digestion path 
-                if (comp.ActiveDigesting.Contains(prey)){        
-                    /* in case prey is removed from container stop digestion and go through regeneration path
-                    or in case consent is removed during digestion*/
-                    if (!_containerSystem.TryGetContainingContainer(prey, out var container) ||
-                    !TryComp<PredComponent>(container.Owner, out var predComp) ||
-                    container.ID != predComp.ContainerId ||
-                    !_consentSystem.HasConsent(prey, "Digestable")){
-                        comp.ActiveDigesting.Remove(prey);
-                        comp.Timer[prey] = 0f;
-                        continue;
-                    }
+                /* digestion process, reduces health of prey and increases hunger/charge of predator every second
+                also show a popup to the prey as a way of feedback */
+                comp.Health -= 0.5f;
+                ShowDigestPopup(prey, comp);
 
-                    /* digestion process, reduces health of prey and increases hunger/charge of predator every second
-                    also show a popup to the prey as a way of feedback */
-                    comp.Health[prey] -= 0.5f;
-                    ShowDigestPopup(pred, prey, comp);
-                    if (TryComp<HungerComponent>(container.Owner, out var hunger)){
-                        _hunger.ModifyHunger(container.Owner, 1, hunger);
-                    }
-                    else if (TryComp<BatteryComponent>(container.Owner, out var battery)){
-                        _battery.SetCharge((container.Owner, battery), battery.CurrentCharge + 2f);
-                    }
-                    else if (TryComp<PowerCellSlotComponent>(container.Owner, out var batterySlot)
-                    && _itemSlots.TryGetSlot(container.Owner, batterySlot.CellSlotId, out var itemSlot)
-                    && itemSlot.Item is { } cellUid
-                    && TryComp<BatteryComponent>(cellUid, out var batteryComp)){
-                        var predCharge = _battery.GetCharge(cellUid);
-                        _battery.SetCharge((cellUid, batteryComp), predCharge + 2f);
-                    }             
-
-                    //once health reaches 0 finish digestion and remove prey from tracking
-                    if (comp.Health[prey] <= 0)
-                        fullydigest.Add(prey);
+                if (TryComp<HungerComponent>(container.Owner, out var hunger)){
+                    _hunger.ModifyHunger(container.Owner, 1, hunger);
                 }
-                    
-                // regeneration path
-                // fun fact principle is like trophic level in ecology!
-                else{
+                else if (TryComp<BatteryComponent>(container.Owner, out var battery)){
+                    _battery.SetCharge((container.Owner, battery), battery.CurrentCharge + 2f);
+                }
+                else if (TryComp<PowerCellSlotComponent>(container.Owner, out var batterySlot)
+                && _itemSlots.TryGetSlot(container.Owner, batterySlot.CellSlotId, out var itemSlot)
+                && itemSlot.Item is { } cellUid
+                && TryComp<BatteryComponent>(cellUid, out var batteryComp)){
+                    var predCharge = _battery.GetCharge(cellUid);
+                    _battery.SetCharge((cellUid, batteryComp), predCharge + 2f);
+                }
 
-                    /*if the prey is not being digested will regenerate health every second till it reaches max health or the hunger/battery is too low
-                    currently set at 50 (starving threshold) for hunger and 50% for battery */
-                    if (TryComp<HungerComponent>(prey, out var preyHunger)){
-                        if (_hunger.GetHunger(preyHunger) > 50 && comp.Health[prey] < comp.Max){
-                            comp.Health[prey] += 0.1f;
-                            _hunger.ModifyHunger(prey, -1f, preyHunger);
-                            continue;
-                        }
-                    }
-                    else if (TryComp<BatteryComponent>(prey, out var preyBattery)){
-                        if (preyBattery.CurrentCharge > (preyBattery.MaxCharge * 0.5f) && comp.Health[prey] < comp.Max){
-                            comp.Health[prey] += 0.1f;
-                            _battery.SetCharge((prey, preyBattery), preyBattery.CurrentCharge - 1f);
-                            continue;
-                        }
-                    }
-                    else if (TryComp<PowerCellSlotComponent>(prey, out var batterySlot)
-                        && _itemSlots.TryGetSlot(prey, batterySlot.CellSlotId, out var itemSlot)
-                        && itemSlot.Item is { } cellUid
-                        && TryComp<BatteryComponent>(cellUid, out var batteryComp)){
-                        var preyCharge = _battery.GetCharge(cellUid);
-
-                        if (preyCharge > batteryComp.MaxCharge * 0.5f && comp.Health[prey] < comp.Max){
-                            comp.Health[prey] += 0.1f;
-                            _battery.SetCharge((cellUid, batteryComp), preyCharge - 2f);
-                            continue;
-                        }
-                    }
+                if (comp.Health <= 0){
+                    FinishDigest(prey, comp);
+                    continue;
                 }
             }
-            // safety check to remove any prey that might have been left in the tracking after digestion or deletion
-            foreach (var p in fullydigest){
-                FinishDigest(p, comp);
-            }                
+                
+            // regeneration path
+            // fun fact principle is like trophic level in ecology!
+            else{
+
+                /*if the prey is not being digested will regenerate health every second till it reaches max health or the hunger/battery is too low
+                currently set at 50 (starving threshold) for hunger and 50% for battery */
+                if (TryComp<HungerComponent>(prey, out var preyHunger)){
+                    if (_hunger.GetHunger(preyHunger) > 50 && comp.Health < comp.MaxHealth){
+                        comp.Health += 0.1f;
+                        _hunger.ModifyHunger(prey, -1f, preyHunger);
+                        continue;
+                    }
+                }
+                else if (TryComp<BatteryComponent>(prey, out var preyBattery)){
+                    if (preyBattery.CurrentCharge > (preyBattery.MaxCharge * 0.5f) && comp.Health < comp.MaxHealth){
+                        comp.Health += 0.1f;
+                        _battery.SetCharge((prey, preyBattery), preyBattery.CurrentCharge - 1f);
+                        continue;
+                    }
+                }
+                else if (TryComp<PowerCellSlotComponent>(prey, out var batterySlot)
+                    && _itemSlots.TryGetSlot(prey, batterySlot.CellSlotId, out var itemSlot)
+                    && itemSlot.Item is { } cellUid
+                    && TryComp<BatteryComponent>(cellUid, out var batteryComp)){
+                    var preyCharge = _battery.GetCharge(cellUid);
+
+                    if (preyCharge > batteryComp.MaxCharge * 0.5f && comp.Health < comp.MaxHealth){
+                        comp.Health += 0.1f;
+                        _battery.SetCharge((cellUid, batteryComp), preyCharge - 2f);
+                        continue;
+                    }
+                }
+            }        
         }
     }
 
     /// <summary>
     /// shows a popup to the prey based on the state of digestion as a form of feedback
     /// </summary>
-    private void ShowDigestPopup(EntityUid pred, EntityUid prey, PreyComponent comp){
-        var health = comp.Health[prey];
-        var max = comp.Max;
-        var percent = health / max;
+    private void ShowDigestPopup(EntityUid prey, PreyComponent comp){
+        var percent = comp.Health / comp.MaxHealth;
         int stage = 0;
 
         if (percent <= 0.10f)
@@ -240,10 +222,10 @@ public sealed class DigestSystem : EntitySystem
             return;
 
         // in case the stage has already been shown for the prey dont show it again
-        if (comp.DigestPopupStage.TryGetValue(prey, out var lastStage) && lastStage >= stage)
+        if (comp.DigestPopupStage >= stage)
             return;
         // Mark this stage as shown
-        comp.DigestPopupStage[prey] = stage;
+        comp.DigestPopupStage = stage;
 
         string? message = stage switch{
             1 => "You feel your body softening inside the stomach.",
