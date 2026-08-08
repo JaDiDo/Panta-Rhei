@@ -12,8 +12,8 @@ namespace Content.Shared._Floof.Vore;
 public sealed partial class PreyComponent : Component
 {
     // the max health of the prey used for digestion and slow regeneration
-    public float Health = 100f;
-    public float MaxHealth = 100f;
+    public float Health = 1f;
+    public float MaxHealth = 1f;
     // trackers for digestion and regeneration
     public bool ActiveDigesting;
     public float Timer;

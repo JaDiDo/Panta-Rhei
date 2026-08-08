@@ -21,6 +21,8 @@ using Content.Shared.Movement;
 using Content.Server.Radiation.Components;
 using Content.Shared.Flash.Components;
 using Content.Shared.Inventory;
+using Content.Shared._Floof.Leash;
+using Content.Shared._Floof.Leash.Components;
 namespace Content.Server._Floof.Vore;
 
 public sealed class PreySystem : EntitySystem
@@ -30,6 +32,7 @@ public sealed class PreySystem : EntitySystem
     [Dependency] private readonly SharedSuitSensorSystem _suitSensorSystem = default!;
     [Dependency] private readonly SharedPopupSystem _popupSystem = default!;
     [Dependency] private readonly InventorySystem _inventorySystem = default!;
+    [Dependency] private readonly LeashSystem _leash = default!;
     
     private readonly HashSet<EntityUid> _pendingImmunityUpdates = new();
 
@@ -64,7 +67,17 @@ public sealed class PreySystem : EntitySystem
         //double check making sure its a vore_container
         if (args.Container.ID != comp.ContainerId)
             return;
-        EnsureComp<DevouredComponent>(args.Entity);
+        var prey = args.Entity;
+        /*in case prey is leashed remove it to prevent bug that keeps pred from 
+        being able to move since prey is still leashed */
+        if (TryComp<LeashedComponent>(prey, out var leashed)
+        && leashed.Leash is { } leashNet
+        && TryGetEntity(leashNet, out var leash)
+        && TryComp<LeashComponent>(leash.Value, out var leashComp)){
+            _leash.RemoveLeash((prey, leashed), (leash.Value, leashComp));
+        }
+
+        EnsureComp<DevouredComponent>(prey);
     }
 
     /// <summary>

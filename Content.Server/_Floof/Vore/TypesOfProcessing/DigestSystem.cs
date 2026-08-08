@@ -18,6 +18,7 @@ using Content.Server.Bed.Cryostorage;
 using Content.Shared.Bed.Cryostorage;
 using Robust.Shared.Configuration;
 using Content.Shared.Containers.ItemSlots;
+using Content.Shared.Body.Components;
 using System.Linq;
 namespace Content.Server._Floof.Vore;
 
@@ -80,7 +81,27 @@ public sealed class DigestSystem : EntitySystem
         if (_containerSystem.TryGetContainingContainer(prey, out var container))
             _popupSystem.PopupEntity("You feel satiated as you feel your belly shrinks down in size", container.Owner, container.Owner);
         
+        EjectPreyContainerContents(prey);
         SendToCryo(prey);
+    }
+
+    private void EjectPreyContainerContents(EntityUid prey)
+    {
+        if (!TryComp<ContainerManagerComponent>(prey, out var containerManager))
+            return;
+
+        foreach (var container in containerManager.GetAllContainers())
+        {
+            foreach (var contained in container.ContainedEntities.ToArray())
+            {
+                if (TryComp<BodyComponent>(contained, out _)){
+                    _containerSystem.Remove(contained, container);
+                }
+                else{
+                    EjectPreyContainerContents(contained);
+                }
+            }
+        }
     }
 
     /// <summary>
