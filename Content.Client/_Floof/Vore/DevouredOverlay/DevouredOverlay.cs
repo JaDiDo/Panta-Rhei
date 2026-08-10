@@ -53,15 +53,20 @@ public sealed class DevouredOverlay : Overlay
         var viewWidth = args.ViewportBounds.Width;
         var time = (float) _timing.RealTime.TotalSeconds;
         /* TODO REPLACE later with digestcomponent values to indicate digestion process by walls closing in*/
-        float tempdigest = 1f; 
+        float digestprogress = 0f;
+        var playerEntity = _playerManager.LocalSession?.AttachedEntity;
+        if (playerEntity != null && _entityManager.TryGetComponent(playerEntity.Value, out PreyComponent? preyComp))
+        {
+            digestprogress = 1f - Math.Clamp(preyComp.Health / preyComp.MaxHealth, 0f, 1f);
+        }
 
         // defining the stomach walls
-        float outerScale = 1.0f - (tempdigest * 0.6f);
-        float innerScale = 0.25f - (tempdigest * 0.25f);
+        float outerScale = 0.4f - (digestprogress * 0.4f);
+        float innerScale = 0.3f - (digestprogress * 0.3f);
         var outerRadius = outerScale * viewWidth;
         var innerRadius = innerScale * viewWidth;
-        var outerCircleMaxRadius = outerRadius + (0.13f * viewWidth);
-        var innerCircleMaxRadius = innerRadius + (0.03f * viewWidth);
+        var outerCircleMaxRadius = outerRadius + ((0.13f - (digestprogress * 0.13f)) * viewWidth);
+        var innerCircleMaxRadius = innerRadius + ((0.03f - (digestprogress * 0.03f)) * viewWidth);
 
         // simulating pulses of circle movement and coloring
         var pulsing = MathF.Cos(time * 0.5f - 1.5f) + 1f;

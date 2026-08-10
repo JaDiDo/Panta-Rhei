@@ -8,12 +8,14 @@ namespace Content.Shared._Floof.Vore;
 /// <summary>
 /// Passive component for prey to keep track of health and digestion state including outside
 /// </summary>
-[RegisterComponent]
+[RegisterComponent, NetworkedComponent, AutoGenerateComponentState]
 public sealed partial class PreyComponent : Component
 {
     // the max health of the prey used for digestion and slow regeneration
-    public float Health = 1f;
-    public float MaxHealth = 1f;
+    [DataField("health"), AutoNetworkedField]
+    public float Health = 100f;
+    [DataField("maxHealth"), AutoNetworkedField]
+    public float MaxHealth = 100f;
     // trackers for digestion and regeneration
     public bool ActiveDigesting;
     public float Timer;

@@ -202,8 +202,7 @@ public sealed class DigestSystem : EntitySystem
                 }
                 else if (TryComp<BatteryComponent>(prey, out var preyBattery)){
                     if (preyBattery.CurrentCharge > (preyBattery.MaxCharge * 0.5f) && comp.Health < comp.MaxHealth){
-                        comp.Health += 0.1f;
-                        _battery.SetCharge((prey, preyBattery), preyBattery.CurrentCharge - 1f);
+                        comp.Health += 0.1f;                        _battery.SetCharge((prey, preyBattery), preyBattery.CurrentCharge - 1f);
                         continue;
                     }
                 }
@@ -214,12 +213,12 @@ public sealed class DigestSystem : EntitySystem
                     var preyCharge = _battery.GetCharge(cellUid);
 
                     if (preyCharge > batteryComp.MaxCharge * 0.5f && comp.Health < comp.MaxHealth){
-                        comp.Health += 0.1f;
-                        _battery.SetCharge((cellUid, batteryComp), preyCharge - 2f);
+                        comp.Health += 0.1f;                        _battery.SetCharge((cellUid, batteryComp), preyCharge - 2f);
                         continue;
                     }
                 }
-            }        
+            }  
+            Dirty(prey, comp);      
         }
     }
 
