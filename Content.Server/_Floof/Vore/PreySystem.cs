@@ -1,18 +1,14 @@
 using Content.Server.Atmos.Components;
-using Content.Shared._Shitmed.Body.Components;
+using Content.Server.Radiation.Components;
 using Content.Shared._DV.CosmicCult.Components;
 using Content.Shared._Floof.Vore;
-using Content.Shared.Body.Events;
-using Content.Shared.Damage.Systems;
 using Content.Shared.Flash.Components;
+using Content.Shared.Inventory;
 using Content.Shared.Medical.SuitSensor;
 using Content.Shared.Medical.SuitSensors;
 using Content.Shared.Mobs;
-using Content.Shared.Mobs.Components;
 using Content.Shared.Mobs.Systems;
-using Robust.Shared.Containers;
-using Content.Shared.Flash.Components;
-using Content.Shared.Damage.Systems;
+using Content.Shared.Movement.Events;
 using Content.Shared.Popups;
 using Content.Shared.Verbs;
 using Content.Shared.Movement.Events;
@@ -23,6 +19,7 @@ using Content.Shared.Flash.Components;
 using Content.Shared.Inventory;
 using Content.Shared._Floof.Leash;
 using Content.Shared._Floof.Leash.Components;
+using Robust.Shared.Containers;
 namespace Content.Server._Floof.Vore;
 
 public sealed class PreySystem : EntitySystem
@@ -44,7 +41,7 @@ public sealed class PreySystem : EntitySystem
         SubscribeLocalEvent<DevouredComponent, ComponentStartup>(OnStartup);
         SubscribeLocalEvent<DevouredComponent, GetVerbsEvent<Verb>>(OnGetVerbs);
         SubscribeLocalEvent<DevouredComponent, MobStateChangedEvent>(OnPreyMobStateChanged);
-        SubscribeLocalEvent<DevouredComponent, MoveInputEvent>(OnRelayMovement);        
+        SubscribeLocalEvent<DevouredComponent, MoveInputEvent>(OnRelayMovement);
     }
 
     /// <summary>
@@ -139,7 +136,7 @@ public sealed class PreySystem : EntitySystem
     }
 
     /// <summary>
-    /// removes the ability to escape by moving when inside a vore container in order to prevent accidentally escapes 
+    /// removes the ability to escape by moving when inside a vore container in order to prevent accidentally escapes
     /// </summary>
     private void OnRelayMovement(EntityUid uid, DevouredComponent  comp, ref MoveInputEvent args){
         if (!IsInVoreContainer(uid))
@@ -176,11 +173,6 @@ public sealed class PreySystem : EntitySystem
         if (!HasComp<PressureImmunityComponent>(prey)){
             EnsureComp<PressureImmunityComponent>(prey);
             tracker.AddedPressure = true;
-        }
-
-        if (!HasComp<BreathingImmunityComponent>(prey)){
-            EnsureComp<BreathingImmunityComponent>(prey);
-            tracker.AddedBreathing = true;
         }
 
         if (!HasComp<TemperatureImmunityComponent>(prey)){
@@ -221,10 +213,6 @@ public sealed class PreySystem : EntitySystem
         if (tracker.AddedPressure){
             RemComp<PressureImmunityComponent>(prey);
             tracker.AddedPressure = false;
-        }
-        if (tracker.AddedBreathing){
-            RemComp<BreathingImmunityComponent>(prey);
-            tracker.AddedBreathing = false;
         }
         if (tracker.AddedTemperature){
             RemComp<TemperatureImmunityComponent>(prey);
