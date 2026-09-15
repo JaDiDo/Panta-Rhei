@@ -77,8 +77,15 @@ public sealed class PredSystem : EntitySystem
     /// handles the verbs that control self inspection not including the different voretypes
     /// </summary>
     public void BuildSelfInteractionVerbs(EntityUid uid, PredComponent comp, GetVerbsEvent<Verb> args){
+        args.Verbs.Add(new Verb
+            {
+                Text = "Vore Settings",
+                Act = () => RaiseNetworkEvent(new OpenVoreMenuEvent(), uid)   
+            });
+        
         if (!_containerSystem.TryGetContainer(uid, comp.ContainerId, out var container))
             return;
+
         if (container.ContainedEntities.Count > 0){
             args.Verbs.Add(new Verb
             {
